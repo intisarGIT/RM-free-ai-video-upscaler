@@ -118,7 +118,7 @@ async function index(): Promise<void> {
 }
 
 function getPreviewHeight(): number {
-    return Math.max(250, Math.min(450, window.innerHeight - 340));
+    return Math.max(200, Math.min(420, window.innerHeight - 380));
 }
 
 /**
@@ -200,28 +200,31 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
 
 
         const previewHeight = getPreviewHeight();
+        const previewWidth = Math.round(video.videoWidth/video.videoHeight*previewHeight);
         imageCompare.style.height = `${previewHeight}px`;
-        imageCompare.style.width =  `${Math.round(video.videoWidth/video.videoHeight*previewHeight)}px`
+        imageCompare.style.width =  `${previewWidth}px`;
         imageCompare.style.margin = 'auto';
         imageCompare.style.position = 'relative';
 
+        const settingsElement = document.getElementById('settings');
+        if (settingsElement) {
+            settingsElement.style.width = `${previewWidth}px`;
+            settingsElement.style.margin = '12px auto';
+        }
+        const scrubberElement = document.getElementById('completed-scrubber');
+        if (scrubberElement) {
+            scrubberElement.style.width = `${previewWidth}px`;
+            scrubberElement.style.margin = '12px auto';
+        }
 
         new ImageCompare(document.getElementById('image-compare')).mount();
-        video.currentTime = video.duration * 0.2 || 0;
         
-        video.onended = function() {
-            if (videoUpscaled) {
-                videoUpscaled.pause();
-                videoUpscaled.currentTime = 0;
-            }
-            video.currentTime = 0;
-            Alpine.store('playbackPlaying', false);
-            Alpine.store('playbackTime', 0);
-            stopPlaybackLoop();
+        video.onseeked = function() {
+            video.onseeked = null;
+            if(video.requestVideoFrameCallback)  video.requestVideoFrameCallback(showPreview);
+            else requestAnimationFrame(showPreview);
         };
-
-        if(video.requestVideoFrameCallback)  video.requestVideoFrameCallback(showPreview);
-        else requestAnimationFrame(showPreview);
+        video.currentTime = video.duration * 0.2 || 0;
 
         window.togglePause = function () {
             const currentState = Alpine.store('state');
@@ -301,6 +304,17 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
                 imageCompareInner.style.width = `${previewWidth}px`;
             }
             
+            const settingsElement = document.getElementById('settings');
+            if (settingsElement) {
+                settingsElement.style.width = `${previewWidth}px`;
+                settingsElement.style.margin = '12px auto';
+            }
+            const scrubberElement = document.getElementById('completed-scrubber');
+            if (scrubberElement) {
+                scrubberElement.style.width = `${previewWidth}px`;
+                scrubberElement.style.margin = '12px auto';
+            }
+            
             setFullScreenLocation();
         }
 
@@ -332,10 +346,22 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
                 
                 // Reset inner container to original preview size
                 const previewHeight = getPreviewHeight();
+                const previewWidth = Math.round(video.videoWidth/video.videoHeight*previewHeight);
                 imageCompareInner.style.height = `${previewHeight}px`;
-                imageCompareInner.style.width = `${Math.round(video.videoWidth/video.videoHeight*previewHeight)}px`;
+                imageCompareInner.style.width = `${previewWidth}px`;
                 imageCompareInner.style.margin = 'auto';
                 imageCompareInner.style.position = 'relative';
+
+                const settingsElement = document.getElementById('settings');
+                if (settingsElement) {
+                    settingsElement.style.width = `${previewWidth}px`;
+                    settingsElement.style.margin = '12px auto';
+                }
+                const scrubberElement = document.getElementById('completed-scrubber');
+                if (scrubberElement) {
+                    scrubberElement.style.width = `${previewWidth}px`;
+                    scrubberElement.style.margin = '12px auto';
+                }
             }
         });
 
@@ -489,76 +515,52 @@ worker.onmessage = function (event: MessageEvent<WorkerResponseMessage>) {
     }
 };
 
-function startPlaybackLoop() {
-    if (playbackLoopActive) return;
-    playbackLoopActive = true;
-    
-    async function tick() {
-        if (!playbackLoopActive) return;
-        if (!video.paused && videoUpscaled && !videoUpscaled.paused) {
-            if (Math.abs(video.currentTime - videoUpscaled.currentTime) > 0.1) {
-                videoUpscaled.currentTime = video.currentTime;
-            }
-            Alpine.store('playbackTime', video.currentTime);
-            
-            try {
-                const [originalBitmap, upscaledBitmap] = await Promise.all([
-                    createImageBitmap(video),
-                    createImageBitmap(videoUpscaled)
-                ]);
-                
-                worker.postMessage({
-                    cmd: 'playbackFrame',
-                    data: {
-                        original: originalBitmap,
-                        upscaled: upscaledBitmap
-                    }
-                }, [originalBitmap, upscaledBitmap]);
-            } catch (e) {
-                // Ignore fast seek errors
-            }
-        }
-        
-        if (playbackLoopActive) {
-            if (video.requestVideoFrameCallback) {
-                video.requestVideoFrameCallback(tick);
-            } else {
-                requestAnimationFrame(tick);
-            }
-        }
-    }
-    
-    if (video.requestVideoFrameCallback) {
-        video.requestVideoFrameCallback(tick);
-    } else {
-        requestAnimationFrame(tick);
-    }
-}
-
-function stopPlaybackLoop() {
-    playbackLoopActive = false;
-    Alpine.store('playbackPlaying', false);
-}
-
-// Global player control functions
-window.togglePlayback = function() {
+async function renderCompletedFrame() {
     if (!videoUpscaled) return;
-    if (video.paused) {
-        video.play();
-        videoUpscaled.play();
-        Alpine.store('playbackPlaying', true);
-        startPlaybackLoop();
-    } else {
-        video.pause();
-        videoUpscaled.pause();
-        Alpine.store('playbackPlaying', false);
-        stopPlaybackLoop();
+    try {
+        const [originalBitmap, upscaledBitmap] = await Promise.all([
+            createImageBitmap(video),
+            createImageBitmap(videoUpscaled)
+        ]);
+        
+        worker.postMessage({
+            cmd: 'playbackFrame',
+            data: {
+                original: originalBitmap,
+                upscaled: upscaledBitmap
+            }
+        }, [originalBitmap, upscaledBitmap]);
+    } catch (e) {
+        // Ignore seek errors
     }
-};
+}
 
 window.seekPlayback = function(val: string) {
     if (!videoUpscaled) return;
     const time = parseFloat(val);
+    
+    video.onseeked = null;
+    videoUpscaled.onseeked = null;
+    
+    let videoSeeked = false;
+    let upscaledSeeked = false;
+    
+    video.onseeked = async () => {
+        video.onseeked = null;
+        videoSeeked = true;
+        if (upscaledSeeked) {
+            await renderCompletedFrame();
+        }
+    };
+    
+    videoUpscaled.onseeked = async () => {
+        videoUpscaled.onseeked = null;
+        upscaledSeeked = true;
+        if (videoSeeked) {
+            await renderCompletedFrame();
+        }
+    };
+    
     video.currentTime = time;
     videoUpscaled.currentTime = time;
     Alpine.store('playbackTime', time);

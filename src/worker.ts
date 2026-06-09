@@ -29,6 +29,9 @@ let resolvePause: (() => void) | null = null;
 // Default weights
 const weights = require('./weights/cnn-2x-m-rl.json');
 
+let activeNetworkName: string = "anime4k/cnn-2x-m";
+let activeWeights: any = weights;
+
 /**
  * Check if WebGPU or WebGL2 is supported in this environment
  */
@@ -116,9 +119,11 @@ async function init(config: InitData): Promise<void> {
   }
 
   if (backend === 'webgpu') {
+    activeNetworkName = "anime4k/cnn-2x-m";
+    activeWeights = weights;
     websr = new WebSR({
-      network_name: "anime4k/cnn-2x-m",
-      weights,
+      network_name: activeNetworkName as any,
+      weights: activeWeights,
       resolution: config.resolution,
       gpu: gpu,
       canvas: config.upscaled as any // OffscreenCanvas is valid but types may be strict
@@ -129,10 +134,11 @@ async function init(config: InitData): Promise<void> {
     if (!gl) {
       throw new Error("Failed to get WebGL2 context on upscaled canvas");
     }
-    const localLargeWeights = require('./weights/cnn-2x-l-rl.json');
+    activeNetworkName = "anime4k/cnn-2x-l";
+    activeWeights = require('./weights/cnn-2x-l-rl.json');
     websr = new WebGLUpscaler({
-      network_name: "anime4k/cnn-2x-l",
-      weights: localLargeWeights,
+      network_name: activeNetworkName,
+      weights: activeWeights,
       resolution: config.resolution,
       gl: gl,
       canvas: config.upscaled
@@ -173,9 +179,12 @@ async function init(config: InitData): Promise<void> {
  * Switch to a different AI upscaling network
  */
 async function switchNetwork(name: string, weights: any, bitmap: ImageBitmap): Promise<void> {
+  activeNetworkName = name;
+  activeWeights = weights;
   websr.switchNetwork(name as any, weights);
 
   await websr.render(bitmap as any);
+  bitmap.close();
 }
 
 
@@ -226,7 +235,10 @@ self.onmessage = async function (event: MessageEvent<WorkerRequestMessage>) {
         upscaled_canvas,
         original_canvas,
         resolution,
-        getPauseLock: () => pauseLock
+        getPauseLock: () => pauseLock,
+        activeNetworkName,
+        activeWeights,
+        gpuDevice: gpu
       });
 
      // To use MediaBunny instead, uncomment above import and use:
@@ -247,6 +259,9 @@ self.onmessage = async function (event: MessageEvent<WorkerRequestMessage>) {
         const upscaledBitmap = event.data.data.upscaled;
         if (ctx) {
           ctx.transferFromImageBitmap(originalBitmap);
+        }
+        if (backend === 'webgl' && websr instanceof WebGLUpscaler) {
+          websr.setFlipY(false);
         }
         if (websr) {
           await websr.render(upscaledBitmap as any);

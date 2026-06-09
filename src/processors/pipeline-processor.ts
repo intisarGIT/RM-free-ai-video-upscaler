@@ -19,6 +19,9 @@ interface ProcessorArgs {
   original_canvas: OffscreenCanvas;
   resolution: { width: number; height: number };
   getPauseLock?: () => Promise<void> | null;
+  activeNetworkName: string;
+  activeWeights: any;
+  gpuDevice?: any;
 }
 
 
@@ -316,7 +319,7 @@ function prettyTime(secs: number): string {
  * Main pipeline processor using Streams API
  */
 export default async function pipelineProcessor(args: ProcessorArgs): Promise<void> {
-  const { inputHandle, outputHandle, websr, upscaled_canvas, original_canvas, resolution, getPauseLock } = args;
+  const { inputHandle, outputHandle, websr, upscaled_canvas, original_canvas, resolution, getPauseLock, activeNetworkName, activeWeights, gpuDevice } = args;
 
   console.log('Starting pipeline processor with Streams API');
 
@@ -393,8 +396,28 @@ export default async function pipelineProcessor(args: ProcessorArgs): Promise<vo
     output.addAudioTrack(audioSource);
   }
 
+  let pipelineWebsr: WebSR | WebGLUpscaler;
+  const pipelineUpscaledCanvas = new OffscreenCanvas(resolution.width * 2, resolution.height * 2);
+
   if (websr instanceof WebGLUpscaler) {
-    websr.setFlipY(true);
+    const glCtx = pipelineUpscaledCanvas.getContext("webgl2", { preserveDrawingBuffer: true });
+    if (!glCtx) throw new Error("WebGL2 context creation failed for pipeline");
+    pipelineWebsr = new WebGLUpscaler({
+      network_name: activeNetworkName as any,
+      weights: activeWeights,
+      resolution: resolution,
+      gl: glCtx,
+      canvas: pipelineUpscaledCanvas
+    });
+    pipelineWebsr.setFlipY(true);
+  } else {
+    pipelineWebsr = new WebSR({
+      network_name: activeNetworkName as any,
+      weights: activeWeights,
+      resolution: resolution,
+      gpu: gpuDevice,
+      canvas: pipelineUpscaledCanvas as any
+    });
   }
 
   // Build the pipeline!
@@ -405,7 +428,7 @@ export default async function pipelineProcessor(args: ProcessorArgs): Promise<vo
   const pipeline = chunkStream
     .pipeThrough(new DemuxerTrackingStream())
     .pipeThrough(new VideoDecoderStream(videoDecoderConfig, getPauseLock))
-    .pipeThrough(new VideoUpscaleStream(websr, upscaled_canvas, original_canvas, getPauseLock))
+    .pipeThrough(new VideoUpscaleStream(pipelineWebsr, pipelineUpscaledCanvas, original_canvas, getPauseLock))
     .pipeThrough(new VideoEncoderStream(videoEncoderConfig))
     .pipeTo(videoWriter);
 
@@ -431,6 +454,14 @@ export default async function pipelineProcessor(args: ProcessorArgs): Promise<vo
   } else {
     const blob = storage!.toBlob('video/mp4');
     postMessage({ cmd: 'finished', data: blob });
+  }
+
+  if (pipelineWebsr) {
+    try {
+      pipelineWebsr.destroy();
+    } catch (e) {
+      console.warn("Failed to destroy pipelineWebsr:", e);
+    }
   }
 
   console.log('Pipeline processing complete!');
