@@ -117,6 +117,10 @@ async function index(): Promise<void> {
     window.chooseFile = chooseFile;
 }
 
+function getPreviewHeight(): number {
+    return Math.max(250, Math.min(450, window.innerHeight - 340));
+}
+
 /**
  * Show unsupported browser feature message
  */
@@ -195,8 +199,9 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
         original_canvas.height = video.videoHeight*2;
 
 
-        imageCompare.style.height = '500px';
-        imageCompare.style.width =  `${Math.round(video.videoWidth/video.videoHeight*500)}px`
+        const previewHeight = getPreviewHeight();
+        imageCompare.style.height = `${previewHeight}px`;
+        imageCompare.style.width =  `${Math.round(video.videoWidth/video.videoHeight*previewHeight)}px`
         imageCompare.style.margin = 'auto';
         imageCompare.style.position = 'relative';
 
@@ -273,21 +278,37 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
 
 
         function setFullScreenLocation(){
-            const containerWidth = Math.round(video.videoWidth/video.videoHeight*500);
-            const containerHeight = 500;
+            const previewHeight = getPreviewHeight();
+            const containerWidth = Math.round(video.videoWidth/video.videoHeight*previewHeight);
+            const containerHeight = previewHeight;
             
             // Position at bottom-right of the preview container (with small padding)
             fullScreenButton.style.left = `${imageCompare.offsetLeft + containerWidth - 20}px`;
             fullScreenButton.style.top = `${imageCompare.offsetTop + containerHeight - 20}px`;
         }
 
+        function updateDimensions() {
+            if (document.fullscreenElement) return;
+            const previewHeight = getPreviewHeight();
+            const previewWidth = Math.round(video.videoWidth / video.videoHeight * previewHeight);
+            
+            imageCompare.style.height = `${previewHeight}px`;
+            imageCompare.style.width = `${previewWidth}px`;
+            
+            const imageCompareInner = document.getElementById('image-compare');
+            if (imageCompareInner) {
+                imageCompareInner.style.height = `${previewHeight}px`;
+                imageCompareInner.style.width = `${previewWidth}px`;
+            }
+            
+            setFullScreenLocation();
+        }
+
+        window.addEventListener('resize', updateDimensions);
+
         setTimeout(setFullScreenLocation, 20);
         setTimeout(setFullScreenLocation, 60);
         setTimeout(setFullScreenLocation, 200);
-
-
-
-
 
         imageCompare.addEventListener('fullscreenchange', function () {
             if(!document.fullscreenElement){
@@ -310,8 +331,9 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
                 imageCompareOuter.style.alignItems = ``;
                 
                 // Reset inner container to original preview size
-                imageCompareInner.style.height = '500px';
-                imageCompareInner.style.width = `${Math.round(video.videoWidth/video.videoHeight*500)}px`;
+                const previewHeight = getPreviewHeight();
+                imageCompareInner.style.height = `${previewHeight}px`;
+                imageCompareInner.style.width = `${Math.round(video.videoWidth/video.videoHeight*previewHeight)}px`;
                 imageCompareInner.style.margin = 'auto';
                 imageCompareInner.style.position = 'relative';
             }

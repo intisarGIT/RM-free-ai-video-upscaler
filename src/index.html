@@ -88,7 +88,7 @@
 
 
 
-<body x-data="{}" style="display: none;" class="font-manrope bg-[#02020a] text-white min-h-screen relative bg-[linear-gradient(to_right,#111126_1px,transparent_1px),linear-gradient(to_bottom,#111126_1px,transparent_1px)] bg-[size:4rem_4rem] pb-24">
+<body x-data="{}" style="display: none;" class="font-manrope bg-[#02020a] text-white min-h-screen relative bg-[linear-gradient(to_right,#111126_1px,transparent_1px),linear-gradient(to_bottom,#111126_1px,transparent_1px)] bg-[size:4rem_4rem] pb-6">
 
 <header class="w-full bg-[#02020a]/80 backdrop-blur-md border-b border-[#111126] sticky top-0 z-50 py-4 px-6 flex items-center justify-between">
     <!-- Left: Logo & Title -->
@@ -122,11 +122,6 @@
 </span>
 </p>
 
-<div  x-show="!($store.state === 'init' || $store.state === 'unsupported')">
-    <br>
-    <br>
-</div>
-
 <div id="unsupported-panel" class="w-[95%] max-w-[800px] mx-auto bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit p-8 box-border border border-[#1c1c38] flex justify-center items-center shadow-2xl"   x-show="$store.state === 'unsupported'">
     <p class="w-full text-2xl text-center my-5 mx-auto">Your browser does not support <span id="missing-component" x-text="$store.component" class="font-mono bg-violet-950/50 text-violet-400 border border-violet-800/40 rounded-lg py-1 px-2 mx-1 text-xl"></span>, a required browser feature for this tool.  <br> <br> Try using the latest version of <img  alt="You can use the latest Chrome browser" src="chrome.svg" style="display: inline;" width="25" height="25"> Chrome or <img alt="You can use the latest Edge browser"  src="edge.svg" style="display: inline;" width="25" height="25"> Edge on a 💻 Laptop or 🖥️ Desktop.
     </p>
@@ -157,7 +152,7 @@
 
 
 
-<div id="start-panel" class="w-[95%] max-w-[1200px] mx-auto bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit min-h-[600px] p-8 box-border border border-[#1c1c38] shadow-2xl" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete' || $store.state === 'paused'">
+<div id="start-panel" class="w-[95%] max-w-[1200px] mx-auto mt-4 bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit p-5 md:p-6 box-border border border-[#1c1c38] shadow-2xl" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete' || $store.state === 'paused'">
 
     <div id="image-compare-outer">
         <div id="image-compare" >
@@ -181,7 +176,7 @@
    
         <p class="w-full mb-2 text-center  ">Upscaling <span x-text="$store.filename" class="font-mono bg-violet-950/50 text-violet-400 border border-violet-800/40 rounded-lg py-1 px-2 mx-1"></span>  to  <span class="font-mono bg-violet-950/50 text-violet-400 border border-violet-800/40 rounded-lg py-1 px-2 mx-1"><span x-text="$store.width*2" ></span>x<span x-text="$store.height*2"></span></span>. Output: ~ <span class="font-mono bg-violet-950/50 text-violet-400 border border-violet-800/40 rounded-lg py-1 px-2 mx-1" x-text="$store.size"></span></p>
 
-        <div id="settings" class="mt-3 mb-3 w-full h-fit rounded-2xl text-base bg-gray-light border border-gray-border p-4">
+        <div id="settings" class="mt-3 mb-3 w-full h-fit rounded-2xl text-base bg-gray-light border border-gray-border p-3 py-2">
 
             <table class="w-full">
                 <tr class="hidden">
