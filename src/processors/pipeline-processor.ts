@@ -8,12 +8,13 @@ import {
   EncodedPacket,
 } from 'mediabunny';
 import WebSR from '@websr/websr';
+import { WebGLUpscaler } from '../websr/webgl';
 import InMemoryStorage from './in-memory-storage';
 
 interface ProcessorArgs {
   inputHandle: FileSystemFileHandle;
   outputHandle?: FileSystemFileHandle;
-  websr: WebSR;
+  websr: WebSR | WebGLUpscaler;
   upscaled_canvas: OffscreenCanvas;
   original_canvas: OffscreenCanvas;
   resolution: { width: number; height: number };
@@ -116,7 +117,7 @@ class VideoUpscaleStream extends TransformStream<
   { frame: VideoFrame; index: number }
 > {
   constructor(
-    private websr: WebSR,
+    private websr: WebSR | WebGLUpscaler,
     private upscaled_canvas: OffscreenCanvas,
     private original_canvas: OffscreenCanvas,
     getPauseLock?: () => Promise<void> | null
@@ -148,12 +149,24 @@ class VideoUpscaleStream extends TransformStream<
             ctx.transferFromImageBitmap(beforeBitmap);
           }
 
-          // Create upscaled VideoFrame from canvas
-          const upscaledFrame = new VideoFrame(upscaled_canvas, {
-            timestamp: frame.timestamp,
-            duration: frame.duration,
-            alpha: "discard"
-          });
+          // Create upscaled VideoFrame from canvas or read pixels for WebGL
+          let upscaledFrame: VideoFrame;
+          if (websr instanceof WebGLUpscaler) {
+            const pixels = websr.readPixels();
+            upscaledFrame = new VideoFrame(pixels, {
+              format: 'RGBA',
+              codedWidth: upscaled_canvas.width,
+              codedHeight: upscaled_canvas.height,
+              timestamp: frame.timestamp,
+              duration: frame.duration || undefined
+            });
+          } else {
+            upscaledFrame = new VideoFrame(upscaled_canvas, {
+              timestamp: frame.timestamp,
+              duration: frame.duration,
+              alpha: "discard"
+            });
+          }
 
           // Clean up original frame
           frame.close();

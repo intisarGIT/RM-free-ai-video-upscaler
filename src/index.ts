@@ -30,6 +30,7 @@ let download_name: string;
 let inputFileHandle: FileSystemFileHandle;
 let gpu: any;
 let websr: WebSR;
+let activeBackend: 'webgpu' | 'webgl' | null = null;
 
 // AI model weights for different network sizes and content types
 type WeightsMap = {
@@ -401,9 +402,11 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
  */
 worker.onmessage = function (event: MessageEvent<WorkerResponseMessage>) {
     if (event.data.cmd === 'isSupported') {
-        const supported = event.data.data;
+        const { supported, backend, missingFeature } = event.data.data;
+        activeBackend = backend;
 
-        if (!supported) return showUnsupported("WebGPU");
+        if (!supported) return showUnsupported(missingFeature || "WebGPU");
+        console.log(`[Main]: Backend selected by worker: ${backend}`);
 
     } else if (event.data.cmd === 'progress') {
         Alpine.store('progress', event.data.data);
@@ -439,12 +442,21 @@ worker.onmessage = function (event: MessageEvent<WorkerResponseMessage>) {
 async function updateNetwork(): Promise<void> {
     const bitmap = await createImageBitmap(video);
 
+    let networkName = networks[size].name;
+    let networkWeights = weights[size][content];
+
+    if (activeBackend === 'webgl') {
+        networkName = 'anime4k/cnn-2x-l';
+        networkWeights = weights['large'][content];
+        console.log(`[WebGL Fallback Mapping]: Mapping network size '${size}' to 'anime4k/cnn-2x-l' for style '${content}'`);
+    }
+
     worker.postMessage({
         cmd: 'network',
         data: {
-            name: networks[size].name,
+            name: networkName,
             bitmap,
-            weights: weights[size][content]
+            weights: networkWeights
         }
     } satisfies WorkerRequestMessage);
 }

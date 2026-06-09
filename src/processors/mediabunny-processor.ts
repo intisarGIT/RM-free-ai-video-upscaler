@@ -14,12 +14,13 @@ import {
 } from 'mediabunny';
 
 import WebSR from '@websr/websr';
+import { WebGLUpscaler } from '../websr/webgl';
 import InMemoryStorage from './in-memory-storage';
 
 interface ProcessorArgs {
   inputHandle: FileSystemFileHandle;
   outputHandle?: FileSystemFileHandle;
-  websr: WebSR;
+  websr: WebSR | WebGLUpscaler;
   upscaled_canvas: OffscreenCanvas;
   original_canvas: OffscreenCanvas;
   resolution: { width: number; height: number };
@@ -150,7 +151,6 @@ export default async function mediabunnyProcessor(args: ProcessorArgs): Promise<
       resizeWidth: videoFrame.codedWidth * 2
     });
 
-    //@ts-expect-error
     websr.render(videoFrame); // Render the upscaled frame
 
     // Render the "Before"

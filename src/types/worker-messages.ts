@@ -32,7 +32,7 @@ export interface NetworkData {
 
 // Messages sent FROM worker TO main thread
 export type WorkerResponseMessage =
-  | { cmd: 'isSupported'; data: boolean }
+  | { cmd: 'isSupported'; data: { supported: boolean; backend: 'webgpu' | 'webgl' | null; missingFeature?: string } }
   | { cmd: 'progress'; data: number }
   | { cmd: 'eta'; data: string }
   | { cmd: 'process' }

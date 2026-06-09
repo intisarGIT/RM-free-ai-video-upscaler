@@ -1,4 +1,5 @@
 import WebSR from '@websr/websr';
+import { WebGLUpscaler, WebGLBilinearUpscaler, WebGPUBilinearUpscaler } from './websr/webgl';
 
 import type {
   WorkerRequestMessage,
@@ -10,11 +11,14 @@ import type {
 
 // Processors
 import pipelineProcessor from './processors/pipeline-processor';
- import mediabunnyProcessor from './processors/mediabunny-processor'; // Fallback if needed
+import mediabunnyProcessor from './processors/mediabunny-processor'; // Fallback if needed
 
 // Worker state
-let gpu: any | false;
-let websr: WebSR;
+let gpu: any | false = false;
+let gl: any | false = false;
+let backend: 'webgpu' | 'webgl' | null = null;
+let websr: WebSR | WebGLUpscaler;
+let bilinearUpscaler: WebGPUBilinearUpscaler | WebGLBilinearUpscaler | null = null;
 let upscaled_canvas: OffscreenCanvas;
 let original_canvas: OffscreenCanvas;
 let resolution: Resolution;
@@ -26,14 +30,55 @@ let resolvePause: (() => void) | null = null;
 const weights = require('./weights/cnn-2x-m-rl.json');
 
 /**
- * Check if WebGPU is supported in this environment
+ * Check if WebGPU or WebGL2 is supported in this environment
  */
 async function isSupported(): Promise<void> {
-  gpu = await WebSR.initWebGPU();
+  // WebCodecs check
+  if (typeof VideoEncoder === 'undefined' || typeof VideoDecoder === 'undefined' || typeof EncodedVideoChunk === 'undefined') {
+    postMessage({
+      cmd: 'isSupported',
+      data: { supported: false, backend: null, missingFeature: 'WebCodecs' }
+    } satisfies WorkerResponseMessage);
+    return;
+  }
+
+  // WebGPU check
+  try {
+    gpu = await WebSR.initWebGPU();
+  } catch (e) {
+    console.warn('WebGPU check failed:', e);
+    gpu = false;
+  }
+
+  if (gpu !== false) {
+    backend = 'webgpu';
+    postMessage({
+      cmd: 'isSupported',
+      data: { supported: true, backend: 'webgpu' }
+    } satisfies WorkerResponseMessage);
+    return;
+  }
+
+  // WebGL2 check
+  try {
+    gl = WebGLUpscaler.initWebGL();
+  } catch (e) {
+    console.warn('WebGL2 check failed:', e);
+    gl = false;
+  }
+
+  if (gl !== false) {
+    backend = 'webgl';
+    postMessage({
+      cmd: 'isSupported',
+      data: { supported: true, backend: 'webgl' }
+    } satisfies WorkerResponseMessage);
+    return;
+  }
 
   postMessage({
     cmd: 'isSupported',
-    data: gpu !== false
+    data: { supported: false, backend: null, missingFeature: 'WebGPU or WebGL2 (with EXT_color_buffer_float)' }
   } satisfies WorkerResponseMessage);
 }
 
@@ -41,17 +86,57 @@ async function isSupported(): Promise<void> {
  * Initialize the worker with canvases and create WebSR instance
  */
 async function init(config: InitData): Promise<void> {
-  if (!gpu) {
-    gpu = await WebSR.initWebGPU();
+  if (!gpu && !gl) {
+    try {
+      gpu = await WebSR.initWebGPU();
+    } catch (e) {
+      gpu = false;
+    }
+    if (gpu !== false) {
+      backend = 'webgpu';
+    } else {
+      try {
+        gl = WebGLUpscaler.initWebGL();
+      } catch (e) {
+        gl = false;
+      }
+      if (gl !== false) {
+        backend = 'webgl';
+      }
+    }
   }
 
-  websr = new WebSR({
-    network_name: "anime4k/cnn-2x-m",
-    weights,
-    resolution: config.resolution,
-    gpu: gpu,
-    canvas: config.upscaled as any // OffscreenCanvas is valid but types may be strict
-  });
+  if (bilinearUpscaler) {
+    try {
+      (bilinearUpscaler as any).destroy?.();
+    } catch (e) {
+      console.warn('Failed to destroy bilinear upscaler:', e);
+    }
+    bilinearUpscaler = null;
+  }
+
+  if (backend === 'webgpu') {
+    websr = new WebSR({
+      network_name: "anime4k/cnn-2x-m",
+      weights,
+      resolution: config.resolution,
+      gpu: gpu,
+      canvas: config.upscaled as any // OffscreenCanvas is valid but types may be strict
+    });
+    bilinearUpscaler = new WebGPUBilinearUpscaler(gpu);
+  } else if (backend === 'webgl') {
+    const localLargeWeights = require('./weights/cnn-2x-l-rl.json');
+    websr = new WebGLUpscaler({
+      network_name: "anime4k/cnn-2x-l",
+      weights: localLargeWeights,
+      resolution: config.resolution,
+      gl: gl,
+      canvas: config.upscaled
+    });
+    bilinearUpscaler = new WebGLBilinearUpscaler();
+  } else {
+    throw new Error('No supported WebGPU or WebGL2 backend found');
+  }
 
   resolution = config.resolution;
   upscaled_canvas = config.upscaled;
@@ -59,10 +144,19 @@ async function init(config: InitData): Promise<void> {
 
   ctx = original_canvas.getContext('bitmaprenderer');
 
-  const bitmap2 = await createImageBitmap(config.bitmap, {
-    resizeHeight: config.resolution.height * 2,
-    resizeWidth: config.resolution.width * 2,
-  });
+  let bitmap2: ImageBitmap;
+  if (bilinearUpscaler) {
+    bitmap2 = await bilinearUpscaler.upscale(
+      config.bitmap,
+      config.resolution.width * 2,
+      config.resolution.height * 2
+    );
+  } else {
+    bitmap2 = await createImageBitmap(config.bitmap, {
+      resizeHeight: config.resolution.height * 2,
+      resizeWidth: config.resolution.width * 2,
+    });
+  }
 
   await websr.render(config.bitmap as any);
 
