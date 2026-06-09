@@ -57,6 +57,7 @@ module.exports = {
                 { from: "src/*.js", to: path.basename('[name].js') },
                 { from: "src/img/*.svg", to: path.basename('[name].svg') },
                 { from: "src/img/*.png", to: path.basename('[name].png') },
+                { from: "src/img/*.webp", to: path.basename('[name].webp') },
 
             ]
         })

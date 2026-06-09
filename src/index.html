@@ -28,24 +28,106 @@
             src="https://js.sentry-cdn.com/367836f9b4faffd76ee764bbacfa7bd8.min.js"
             crossorigin="anonymous"
     ></script>
-    <title>Free AI Video Upscaler, no signup or installation required</title>
+    <title>RenderMage Free AI Video Upscaler, no signup or installation required</title>
 
-
+    <style>
+        /* Custom RenderMage Theme Styles */
+        .btn-primary {
+            background-color: #7c3aed !important;
+            border-color: #7c3aed !important;
+            color: #fff !important;
+            border-radius: 9999px !important;
+            padding: 0.625rem 1.5rem !important;
+            font-weight: 700 !important;
+            box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.2) !important;
+            transition: all 0.2s !important;
+            border: 0 !important;
+        }
+        .btn-primary:hover {
+            background-color: #6d28d9 !important;
+            border-color: #6d28d9 !important;
+            transform: translateY(-1px);
+        }
+        .btn-outline-primary {
+            color: #c084fc !important;
+            border-color: #7c3aed !important;
+            border-radius: 9999px !important;
+            padding: 0.5rem 1.25rem !important;
+            font-weight: 600 !important;
+            transition: all 0.2s !important;
+        }
+        .btn-outline-primary:hover {
+            background-color: #7c3aed !important;
+            border-color: #7c3aed !important;
+            color: #fff !important;
+        }
+        .btn-check:checked + .btn-outline-primary {
+            background-color: #7c3aed !important;
+            border-color: #7c3aed !important;
+            color: #fff !important;
+        }
+        .progress {
+            background-color: #111126 !important;
+            border: 1px solid #1c1c38 !important;
+            height: 1.5rem !important;
+            border-radius: 9999px !important;
+        }
+        .progress-bar {
+            background-color: #7c3aed !important;
+        }
+        .progress-bar.bg-warning {
+            background-color: #d97706 !important;
+        }
+        #settings {
+            background-color: #050510 !important;
+            border-color: #1c1c38 !important;
+            color: #fff !important;
+        }
+    </style>
 </head>
 
 
 
-<body x-data="{}" style="display: none;" class="font-manrope">
+<body x-data="{}" style="display: none;" class="font-manrope bg-[#02020a] text-white min-h-screen relative bg-[linear-gradient(to_right,#111126_1px,transparent_1px),linear-gradient(to_bottom,#111126_1px,transparent_1px)] bg-[size:4rem_4rem] pb-24">
+
+<header class="w-full bg-[#02020a]/80 backdrop-blur-md border-b border-[#111126] sticky top-0 z-50 py-4 px-6 flex items-center justify-between">
+    <!-- Left: Logo & Title -->
+    <a href="https://rendermage.com/" target="_blank" class="flex items-center gap-3 no-underline">
+        <img src="rendermage_logo.webp" alt="RenderMage Logo" class="w-10 h-10 object-contain rounded-lg">
+        <div>
+            <div class="text-white font-extrabold text-lg tracking-wider leading-none">RENDERMAGE</div>
+            <div class="text-gray-400 text-xs mt-0.5 font-medium tracking-wide">AI Video Studio</div>
+        </div>
+    </a>
+    
+    <!-- Middle: Navigation Links -->
+    <nav class="hidden md:flex items-center gap-8 text-gray-300 text-sm font-semibold">
+        <a href="https://rendermage.com/#features" target="_blank" class="hover:text-violet-400 transition-colors no-underline">Features</a>
+        <a href="https://rendermage.com/#compare" target="_blank" class="hover:text-violet-400 transition-colors no-underline">Compare</a>
+        <a href="https://rendermage.com/#pricing" target="_blank" class="hover:text-violet-400 transition-colors no-underline">Pricing</a>
+        <a href="https://rendermage.com/" target="_blank" class="hover:text-violet-400 transition-colors no-underline">Get Started</a>
+    </nav>
+    
+    <!-- Right: Action Buttons -->
+    <div class="flex items-center gap-4">
+        <a href="https://app.rendermage.com/login" target="_blank" class="text-gray-300 hover:text-white text-sm font-semibold transition-colors no-underline">Sign in</a>
+        <a href="https://rendermage.com/" target="_blank" class="bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm px-5 py-2 rounded-full transition-all flex items-center gap-2 shadow-lg shadow-violet-500/20 no-underline">
+            Start Free <span class="text-base">&rarr;</span>
+        </a>
+    </div>
+</header>
 
 
-<h1 id="title" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="w-full text-center  my-16 font-extrabold text-6xl text-blue-900">Free AI Video Upscaler</h1>
-<p id="hero-text" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="text-gray-900 text-xl my-4 mx-auto w-[700px] text-center">Upscale videos or images with AI for free, right in your browser - no signups, installation or config necessary. It is fast, free and open source.
+<h1 id="title" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="w-full text-center mt-20 mb-6 font-extrabold text-5xl md:text-6xl text-white leading-tight">
+    RenderMage <span class="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-purple-600">Free AI Video Upscaler</span>
+</h1>
+<p id="hero-text" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="text-gray-400 text-lg md:text-xl my-4 mx-auto w-[90%] max-w-[750px] text-center font-medium leading-relaxed">
+    Upscale your walkthroughs, flyovers, and renders to 4K using browser-based AI upscaling. Completely free, no registration or GPU configs required.
 
 
-
-<span x-show="$store.state === 'info'" class="w-[640px] mx-auto block text-center mb-5">
+<span x-show="$store.state === 'info'" class="w-[90%] max-w-[700px] mx-auto block text-center mb-5 text-gray-400 leading-relaxed">
     This is a quick, free no-nonsense tool for upscaling videos with AI right in the browser. There is no software to install, and no registration or sign up required. All you need to do is input a video, and your browser will do all of the AI Upscaling and video processing. This software tool is completely free and open source, and works particularly well for animated content.
-I built it because from previous experience as a casual user who just wants to upscale a few videos you have around, it's surprisingly frustrating. There are paid tools like <a href="https://www.topazlabs.com/">Topaz Labs </a>  which are excellent but also overkill for non-professional work, or open source projects like <a href="https://github.com/k4yt3x/video2x"> Video2X </a>  which require a lot of setup and configuration. This tool, in contrast, is designed to be quick, fast, free, simple and easy to use. It is based on my <a href="https://github.com/sb2702/websr">WebSR</a> project, which is an open-source WebSDK for applying real-time super resolution to videos on the web. It works by porting several open source AI Upscaling algorithms like <a href="https://github.com/bloc97/Anime4K"> Anime4K</a> and <a href="https://github.com/xinntao/Real-ESRGAN">RealESRGAN</a> into WebGPU. The WebSR SDK then allows you to easily apply these AI Upscaling (Super resolution) algorithms to each frame of a video directly in the browser.
+    It is based on the <a href="https://github.com/sb2702/websr" target="_blank" class="text-violet-400 hover:text-violet-300 font-semibold no-underline">WebSR</a> project, which is an open-source WebSDK for applying real-time super resolution to videos on the web. It works by porting several open source AI Upscaling algorithms like <a href="https://github.com/bloc97/Anime4K" target="_blank" class="text-violet-400 hover:text-violet-300 font-semibold no-underline">Anime4K</a> and <a href="https://github.com/xinntao/Real-ESRGAN" target="_blank" class="text-violet-400 hover:text-violet-300 font-semibold no-underline">RealESRGAN</a> into WebGPU and WebGL2. The WebSR SDK then allows you to easily apply these AI Upscaling (Super resolution) algorithms to each frame of a video directly in the browser.
 </span>
 </p>
 
@@ -54,37 +136,37 @@ I built it because from previous experience as a casual user who just wants to u
     <br>
 </div>
 
-<div id="unsupported-panel" class="w-[95%] max-w-[800px] mx-auto bg-gray-light rounded-3xl h-fit p-6 box-border border border-gray-border flex justify-center items-center"   x-show="$store.state === 'unsupported'">
-    <p class="w-full text-2xl text-center my-5 mx-auto">Your browser does not support <span id="missing-component" x-text="$store.component" class="font-mono bg-gray-200 rounded-lg py-1 px-2 mx-1 text-xl"></span>, a required browser feature for this tool.  <br> <br> Try using the latest version of <img  alt="You can use the latest Chrome browser" src="chrome.svg" style="display: inline;" width="25" height="25"> Chrome or <img alt="You can use the latest Edge browser"  src="edge.svg" style="display: inline;" width="25" height="25"> Edge on a 💻 Laptop or 🖥️ Desktop.
+<div id="unsupported-panel" class="w-[95%] max-w-[800px] mx-auto bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit p-8 box-border border border-[#1c1c38] flex justify-center items-center shadow-2xl"   x-show="$store.state === 'unsupported'">
+    <p class="w-full text-2xl text-center my-5 mx-auto">Your browser does not support <span id="missing-component" x-text="$store.component" class="font-mono bg-violet-950/50 text-violet-400 border border-violet-800/40 rounded-lg py-1 px-2 mx-1 text-xl"></span>, a required browser feature for this tool.  <br> <br> Try using the latest version of <img  alt="You can use the latest Chrome browser" src="chrome.svg" style="display: inline;" width="25" height="25"> Chrome or <img alt="You can use the latest Edge browser"  src="edge.svg" style="display: inline;" width="25" height="25"> Edge on a 💻 Laptop or 🖥️ Desktop.
     </p>
 </div>
 
 
 <div class="w-[95%] max-w-[800px] mx-auto" x-show="$store.state === 'unsupported'" >
 
-    <p class="w-full text-xl text-center my-8 mx-auto"> For what it's worth, here's how it's supposed to work <a href="https://www.youtube.com/watch?v=hhweJlZsDFE" target="_blank">[YouTube link]</a></p>
+    <p class="w-full text-xl text-center my-8 mx-auto text-gray-400"> For what it's worth, here's how it's supposed to work <a href="https://www.youtube.com/watch?v=hhweJlZsDFE" target="_blank" class="text-violet-400 hover:text-violet-300 font-semibold">[YouTube link]</a></p>
 </div>
 
 
 
 
-<div id="loading-panel" class="w-[95%] max-w-[1200px] mx-auto bg-gray-light rounded-3xl h-fit min-h-[600px] p-6 box-border border border-gray-border flex justify-center items-center"   x-show="$store.state === 'loading'">
+<div id="loading-panel" class="w-[95%] max-w-[1200px] mx-auto bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit min-h-[600px] p-6 box-border border border-[#1c1c38] flex justify-center items-center shadow-2xl"   x-show="$store.state === 'loading'">
 
     <img src="loading.svg" alt="Loading" class="w-64 h-64 mx-auto block relative">
 </div>
 
-<div id="error-panel" class="w-[95%] max-w-[1200px] mx-auto bg-gray-light rounded-3xl h-fit min-h-[600px] p-6 box-border border border-gray-border flex justify-center items-center"   x-show="$store.state === 'error'">
-    <p class="w-full text-2xl text-center my-5 mx-auto">An error ocurred while processing the video: <span class="font-mono bg-gray-200 rounded-lg py-1 px-2 mx-1" x-text="$store.error"></span></p>
+<div id="error-panel" class="w-[95%] max-w-[1200px] mx-auto bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit min-h-[600px] p-8 box-border border border-[#1c1c38] flex justify-center items-center shadow-2xl"   x-show="$store.state === 'error'">
+    <p class="w-full text-2xl text-center my-5 mx-auto">An error ocurred while processing the video: <span class="font-mono bg-red-950/50 text-red-400 border border-red-800/40 rounded-lg py-1 px-2 mx-1" x-text="$store.error"></span></p>
 </div>
 
-<div id="file-load-panel" class="w-[95%] max-w-[800px] mx-auto bg-gray-light rounded-3xl h-[360px] p-6 box-border border border-gray-border block"  x-show="$store.state === 'init'">
-    <p class="w-full text-2xl text-center my-5 mx-auto">Choose a video to upscale</p>
-    <button type="button" class="btn btn-primary mx-auto my-16 py-2 px-4 rounded-lg font-extrabold block bg-blue-900 flex flex-row"  id="input-button" onclick="chooseFile(this)">Choose a video file</button>
+<div id="file-load-panel" class="w-[95%] max-w-[800px] mx-auto bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-[360px] p-8 box-border border border-[#1c1c38] block shadow-2xl"  x-show="$store.state === 'init'">
+    <p class="w-full text-2xl text-center my-5 mx-auto font-bold text-white">Choose a video to upscale</p>
+    <button type="button" class="btn btn-primary mx-auto my-14 py-3 px-8 rounded-full font-extrabold block bg-violet-600 hover:bg-violet-700 text-white flex flex-row items-center gap-2 transition-all shadow-lg shadow-violet-500/20 border-0"  id="input-button" onclick="chooseFile(this)">Choose a video file</button>
 </div>
 
 
 
-<div id="start-panel" class="w-[95%] max-w-[1200px] mx-auto bg-gray-light rounded-3xl h-fit min-h-[600px] p-6 box-border border border-gray-border" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete' || $store.state === 'paused'">
+<div id="start-panel" class="w-[95%] max-w-[1200px] mx-auto bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit min-h-[600px] p-8 box-border border border-[#1c1c38] shadow-2xl" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete' || $store.state === 'paused'">
 
     <div id="image-compare-outer">
         <div id="image-compare" >
@@ -93,6 +175,7 @@ I built it because from previous experience as a casual user who just wants to u
             <canvas id="upscaled" ></canvas>
         </div>
  
+
 
 
     </div>
@@ -105,7 +188,7 @@ I built it because from previous experience as a casual user who just wants to u
     <div id="preview"  x-show="$store.state === 'preview'">
 
    
-        <p class="w-full mb-2 text-center  ">Upscaling <span x-text="$store.filename" class="font-mono bg-gray-200 rounded-lg py-1 px-2 mx-1"></span>  to  <span class="font-mono bg-gray-200 rounded-lg py-1 px-2 mx-1"><span x-text="$store.width*2" ></span>x<span x-text="$store.height*2"></span></span>. Output: ~ <span class="font-mono bg-gray-200 rounded-lg py-1 px-2 mx-1" x-text="$store.size"></span></p>
+        <p class="w-full mb-2 text-center  ">Upscaling <span x-text="$store.filename" class="font-mono bg-violet-950/50 text-violet-400 border border-violet-800/40 rounded-lg py-1 px-2 mx-1"></span>  to  <span class="font-mono bg-violet-950/50 text-violet-400 border border-violet-800/40 rounded-lg py-1 px-2 mx-1"><span x-text="$store.width*2" ></span>x<span x-text="$store.height*2"></span></span>. Output: ~ <span class="font-mono bg-violet-950/50 text-violet-400 border border-violet-800/40 rounded-lg py-1 px-2 mx-1" x-text="$store.size"></span></p>
 
         <div id="settings" class="mt-3 mb-3 w-full h-fit rounded-2xl text-base bg-gray-light border border-gray-border p-4">
 
@@ -153,7 +236,7 @@ I built it because from previous experience as a casual user who just wants to u
 
 
     <div id="info"  class="" x-show="$store.state === 'processing' || $store.state === 'paused'">
-        <p class="text-center mx-auto my-2">Upscaling <span x-text="$store.filename" class="font-mono bg-gray-200 rounded-lg py-1 px-2 mx-auto text-center"></span> .Estimated time left: <span x-text="$store.eta"></span></p>
+        <p class="text-center mx-auto my-2">Upscaling <span x-text="$store.filename" class="font-mono bg-violet-950/50 text-violet-400 border border-violet-800/40 rounded-lg py-1 px-2 mx-auto text-center"></span> .Estimated time left: <span x-text="$store.eta"></span></p>
 
         <p class="text-center mx-auto my-2 text-yellow-600 font-bold" x-show="$store.state === 'paused'">
             ⏸ Processing Paused
@@ -181,11 +264,11 @@ I built it because from previous experience as a casual user who just wants to u
 
 
     <!-- Playback Controls for Completed Video -->
-    <div x-show="$store.state === 'complete' && $store.target === 'blob'" class="w-full flex flex-col items-center justify-center p-4 bg-white border border-gray-border rounded-2xl my-4 gap-2">
+    <div x-show="$store.state === 'complete' && $store.target === 'blob'" class="w-full flex flex-col items-center justify-center p-4 bg-[#0a0a1a]/85 border border-[#1c1c38] rounded-2xl my-4 gap-2">
         <div class="flex flex-row items-center w-full gap-4">
-            <button type="button" class="btn btn-primary min-w-[80px] bg-blue-900 text-white font-bold" onclick="togglePlayback()" x-text="$store.playbackPlaying ? 'Pause' : 'Play'"></button>
-            <input type="range" class="form-range flex-grow accent-blue-900" min="0" step="any" x-bind:max="$store.videoDuration" x-bind:value="$store.playbackTime" @input="seekPlayback($event.target.value)">
-            <span class="text-sm font-mono text-gray-700 min-w-[100px] text-right" x-text="formatTime($store.playbackTime) + ' / ' + formatTime($store.videoDuration)"></span>
+            <button type="button" class="btn btn-primary min-w-[80px]" onclick="togglePlayback()" x-text="$store.playbackPlaying ? 'Pause' : 'Play'"></button>
+            <input type="range" class="form-range flex-grow accent-violet-600" min="0" step="any" x-bind:max="$store.videoDuration" x-bind:value="$store.playbackTime" @input="seekPlayback($event.target.value)">
+            <span class="text-sm font-mono text-gray-300 min-w-[100px] text-right" x-text="formatTime($store.playbackTime) + ' / ' + formatTime($store.videoDuration)"></span>
         </div>
     </div>
 
@@ -193,7 +276,7 @@ I built it because from previous experience as a casual user who just wants to u
 
 
 
-        <div class="mx-auto my-2" x-show="$store.target=='writer'">Saved result to <span x-text="$store.download_name" class="font-mono bg-gray-200 rounded-lg py-1 px-2 mx-1"></span></div>
+        <div class="mx-auto my-2" x-show="$store.target=='writer'">Saved result to <span x-text="$store.download_name" class="font-mono bg-violet-950/50 text-violet-400 border border-violet-800/40 rounded-lg py-1 px-2 mx-1"></span></div>
         
         
         <div class="flex flex-row">
@@ -223,7 +306,7 @@ I built it because from previous experience as a casual user who just wants to u
     <button 
         type="button" 
         @click="open = !open" 
-        class="w-10 h-10 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold text-lg shadow-lg hover:bg-blue-800 transition-colors focus:outline-none"
+        class="w-10 h-10 rounded-full bg-violet-600 text-white flex items-center justify-center font-bold text-lg shadow-lg shadow-violet-500/20 hover:bg-violet-700 transition-all focus:outline-none"
         title="About this tool"
     >
         !
@@ -234,15 +317,15 @@ I built it because from previous experience as a casual user who just wants to u
         x-show="open" 
         @click.outside="open = false"
         x-transition
-        class="absolute bottom-12 left-0 w-80 bg-white border border-gray-border rounded-2xl p-5 shadow-2xl text-sm text-gray-800"
+        class="absolute bottom-12 left-0 w-80 bg-[#0a0a1a]/95 border border-[#1c1c38] rounded-2xl p-5 shadow-2xl text-sm text-gray-300 backdrop-blur-md"
     >
-        <h4 class="font-bold text-lg mb-2 text-blue-900">About</h4>
+        <h4 class="font-bold text-lg mb-2 text-violet-400">About</h4>
         <p class="leading-relaxed">
             Adapted from the original source code by <strong>© Sam Bhattacharyya 2026</strong> under the MIT license.
         </p>
-        <div class="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
-            <a class="text-blue-600 font-semibold hover:underline" href="https://github.com/sb2702/free-ai-video-upscaler" target="_blank">Source code on GitHub</a>
-            <a class="text-gray-500 hover:underline" href="https://videoupscaler.canny.io/issues-requests" target="_blank">Issues / Feedback</a>
+        <div class="mt-3 pt-3 border-t border-[#1c1c38] flex justify-between items-center">
+            <a class="text-violet-400 font-semibold hover:text-violet-300 no-underline hover:underline" href="https://github.com/sb2702/free-ai-video-upscaler" target="_blank">Source code on GitHub</a>
+            <a class="text-gray-400 hover:text-violet-300 no-underline hover:underline" href="https://videoupscaler.canny.io/issues-requests" target="_blank">Issues / Feedback</a>
         </div>
     </div>
 </div>
