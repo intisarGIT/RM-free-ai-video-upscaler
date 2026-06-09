@@ -125,6 +125,10 @@ async function init(config: InitData): Promise<void> {
     });
     bilinearUpscaler = new WebGPUBilinearUpscaler(gpu);
   } else if (backend === 'webgl') {
+    gl = config.upscaled.getContext("webgl2", { preserveDrawingBuffer: true });
+    if (!gl) {
+      throw new Error("Failed to get WebGL2 context on upscaled canvas");
+    }
     const localLargeWeights = require('./weights/cnn-2x-l-rl.json');
     websr = new WebGLUpscaler({
       network_name: "anime4k/cnn-2x-l",

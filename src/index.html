@@ -86,7 +86,7 @@ I built it because from previous experience as a casual user who just wants to u
 
 <div id="start-panel" class="w-[640px] mx-auto bg-gray-light rounded-3xl h-[680px] p-6 box-border border border-gray-border" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete' || $store.state === 'paused'">
 
-    <div id="image-compare-outer">
+    <div id="image-compare-outer" x-show="$store.state === 'preview'">
         <div id="image-compare" >
        
             <canvas id="original"></canvas>

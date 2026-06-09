@@ -134,20 +134,8 @@ class VideoUpscaleStream extends TransformStream<
           }
           const { frame, index } = item;
 
-          // Create "before" preview (resized to 2x)
-          const beforeBitmap = await createImageBitmap(frame, {
-            resizeHeight: frame.codedHeight * 2,
-            resizeWidth: frame.codedWidth * 2
-          });
-
           // Render upscaled frame to canvas
           await websr.render(frame);
-
-          // Update "before" preview canvas
-          const ctx = original_canvas.getContext('bitmaprenderer');
-          if (ctx) {
-            ctx.transferFromImageBitmap(beforeBitmap);
-          }
 
           // Create upscaled VideoFrame from canvas or read pixels for WebGL
           let upscaledFrame: VideoFrame;
@@ -403,6 +391,10 @@ export default async function pipelineProcessor(args: ProcessorArgs): Promise<vo
   if (audioConfig) {
     audioSource = new EncodedAudioPacketSource('aac');
     output.addAudioTrack(audioSource);
+  }
+
+  if (websr instanceof WebGLUpscaler) {
+    websr.setFlipY(true);
   }
 
   // Build the pipeline!
