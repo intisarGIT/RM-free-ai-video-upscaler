@@ -31,6 +31,8 @@ let inputFileHandle: FileSystemFileHandle;
 let gpu: any;
 let websr: WebSR;
 let activeBackend: 'webgpu' | 'webgl' | null = null;
+let videoUpscaled: HTMLVideoElement | null = null;
+let playbackLoopActive = false;
 
 // AI model weights for different network sizes and content types
 type WeightsMap = {
@@ -81,6 +83,9 @@ declare global {
         showSaveFilePicker: (options?: any) => Promise<FileSystemFileHandle>;
         showOpenFilePicker: (options?: any) => Promise<FileSystemFileHandle[]>;
         togglePause: () => void;
+        togglePlayback: () => void;
+        seekPlayback: (val: string) => void;
+        formatTime: (secs: number) => string;
     }
 }
 
@@ -93,6 +98,9 @@ document.addEventListener("DOMContentLoaded", index);
  */
 async function index(): Promise<void> {
     Alpine.store('state', 'init');
+    Alpine.store('playbackPlaying', false);
+    Alpine.store('playbackTime', 0);
+    Alpine.store('videoDuration', 0);
 
     Alpine.start();
     document.body.style.display = "block";
@@ -187,14 +195,26 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
         original_canvas.height = video.videoHeight*2;
 
 
-        imageCompare.style.height = '318px';
-        imageCompare.style.width =  `${Math.round(video.videoWidth/video.videoHeight*318)}px`
+        imageCompare.style.height = '500px';
+        imageCompare.style.width =  `${Math.round(video.videoWidth/video.videoHeight*500)}px`
         imageCompare.style.margin = 'auto';
         imageCompare.style.position = 'relative';
 
 
         new ImageCompare(document.getElementById('image-compare')).mount();
         video.currentTime = video.duration * 0.2 || 0;
+        
+        video.onended = function() {
+            if (videoUpscaled) {
+                videoUpscaled.pause();
+                videoUpscaled.currentTime = 0;
+            }
+            video.currentTime = 0;
+            Alpine.store('playbackPlaying', false);
+            Alpine.store('playbackTime', 0);
+            stopPlaybackLoop();
+        };
+
         if(video.requestVideoFrameCallback)  video.requestVideoFrameCallback(showPreview);
         else requestAnimationFrame(showPreview);
 
@@ -253,8 +273,8 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
 
 
         function setFullScreenLocation(){
-            const containerWidth = Math.round(video.videoWidth/video.videoHeight*318);
-            const containerHeight = 318;
+            const containerWidth = Math.round(video.videoWidth/video.videoHeight*500);
+            const containerHeight = 500;
             
             // Position at bottom-right of the preview container (with small padding)
             fullScreenButton.style.left = `${imageCompare.offsetLeft + containerWidth - 20}px`;
@@ -290,8 +310,8 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
                 imageCompareOuter.style.alignItems = ``;
                 
                 // Reset inner container to original preview size
-                imageCompareInner.style.height = '318px';
-                imageCompareInner.style.width = `${Math.round(video.videoWidth/video.videoHeight*318)}px`;
+                imageCompareInner.style.height = '500px';
+                imageCompareInner.style.width = `${Math.round(video.videoWidth/video.videoHeight*500)}px`;
                 imageCompareInner.style.margin = 'auto';
                 imageCompareInner.style.position = 'relative';
             }
@@ -425,13 +445,108 @@ worker.onmessage = function (event: MessageEvent<WorkerResponseMessage>) {
 
     } else if (event.data.cmd === 'finished') {
         Alpine.store('state', 'complete');
-        Alpine.store('download_url', event.data.data ? window.URL.createObjectURL(event.data.data) : null);
+        const url = event.data.data ? window.URL.createObjectURL(event.data.data) : null;
+        Alpine.store('download_url', url);
+        if (url) {
+            videoUpscaled = document.createElement('video');
+            videoUpscaled.src = url;
+            videoUpscaled.muted = true;
+            videoUpscaled.playsInline = true;
+            videoUpscaled.loop = true;
+            video.loop = true;
+            
+            Alpine.store('videoDuration', video.duration || 0);
+            Alpine.store('playbackTime', 0);
+            Alpine.store('playbackPlaying', false);
+        }
     }
     else if (event.data.cmd === 'paused') {
         Alpine.store('state', 'paused');
     } else if (event.data.cmd === 'resumed') {
         Alpine.store('state', 'processing');
     }
+};
+
+function startPlaybackLoop() {
+    if (playbackLoopActive) return;
+    playbackLoopActive = true;
+    
+    async function tick() {
+        if (!playbackLoopActive) return;
+        if (!video.paused && videoUpscaled && !videoUpscaled.paused) {
+            if (Math.abs(video.currentTime - videoUpscaled.currentTime) > 0.1) {
+                videoUpscaled.currentTime = video.currentTime;
+            }
+            Alpine.store('playbackTime', video.currentTime);
+            
+            try {
+                const [originalBitmap, upscaledBitmap] = await Promise.all([
+                    createImageBitmap(video),
+                    createImageBitmap(videoUpscaled)
+                ]);
+                
+                worker.postMessage({
+                    cmd: 'playbackFrame',
+                    data: {
+                        original: originalBitmap,
+                        upscaled: upscaledBitmap
+                    }
+                }, [originalBitmap, upscaledBitmap]);
+            } catch (e) {
+                // Ignore fast seek errors
+            }
+        }
+        
+        if (playbackLoopActive) {
+            if (video.requestVideoFrameCallback) {
+                video.requestVideoFrameCallback(tick);
+            } else {
+                requestAnimationFrame(tick);
+            }
+        }
+    }
+    
+    if (video.requestVideoFrameCallback) {
+        video.requestVideoFrameCallback(tick);
+    } else {
+        requestAnimationFrame(tick);
+    }
+}
+
+function stopPlaybackLoop() {
+    playbackLoopActive = false;
+    Alpine.store('playbackPlaying', false);
+}
+
+// Global player control functions
+window.togglePlayback = function() {
+    if (!videoUpscaled) return;
+    if (video.paused) {
+        video.play();
+        videoUpscaled.play();
+        Alpine.store('playbackPlaying', true);
+        startPlaybackLoop();
+    } else {
+        video.pause();
+        videoUpscaled.pause();
+        Alpine.store('playbackPlaying', false);
+        stopPlaybackLoop();
+    }
+};
+
+window.seekPlayback = function(val: string) {
+    if (!videoUpscaled) return;
+    const time = parseFloat(val);
+    video.currentTime = time;
+    videoUpscaled.currentTime = time;
+    Alpine.store('playbackTime', time);
+};
+
+window.formatTime = function(secs: number): string {
+    if (isNaN(secs) || secs === Infinity) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
 };
 
 

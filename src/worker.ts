@@ -240,5 +240,20 @@ self.onmessage = async function (event: MessageEvent<WorkerRequestMessage>) {
         event.data.data.bitmap
       );
       break;
+
+    case 'playbackFrame':
+      if (event.data.cmd === 'playbackFrame') {
+        const originalBitmap = event.data.data.original;
+        const upscaledBitmap = event.data.data.upscaled;
+        if (ctx) {
+          ctx.transferFromImageBitmap(originalBitmap);
+        }
+        if (websr) {
+          await websr.render(upscaledBitmap as any);
+        }
+        originalBitmap.close();
+        upscaledBitmap.close();
+      }
+      break;
   }
 };

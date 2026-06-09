@@ -15,7 +15,8 @@ export type WorkerRequestMessage =
   | { cmd: 'network'; data: NetworkData }
   | { cmd: 'process'; inputHandle: FileSystemFileHandle; outputHandle?: FileSystemFileHandle }
   | { cmd: 'pause' }
-  | { cmd: 'resume' };
+  | { cmd: 'resume' }
+  | { cmd: 'playbackFrame'; data: { original: ImageBitmap; upscaled: ImageBitmap } };
 
 export interface InitData {
   bitmap: ImageBitmap;

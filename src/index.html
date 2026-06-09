@@ -54,13 +54,13 @@ I built it because from previous experience as a casual user who just wants to u
     <br>
 </div>
 
-<div id="unsupported-panel" class="w-[640px] mx-auto bg-gray-light rounded-3xl h-fit p-6 box-border border border-gray-border flex justify-center items-center"   x-show="$store.state === 'unsupported'">
+<div id="unsupported-panel" class="w-[95%] max-w-[800px] mx-auto bg-gray-light rounded-3xl h-fit p-6 box-border border border-gray-border flex justify-center items-center"   x-show="$store.state === 'unsupported'">
     <p class="w-full text-2xl text-center my-5 mx-auto">Your browser does not support <span id="missing-component" x-text="$store.component" class="font-mono bg-gray-200 rounded-lg py-1 px-2 mx-1 text-xl"></span>, a required browser feature for this tool.  <br> <br> Try using the latest version of <img  alt="You can use the latest Chrome browser" src="chrome.svg" style="display: inline;" width="25" height="25"> Chrome or <img alt="You can use the latest Edge browser"  src="edge.svg" style="display: inline;" width="25" height="25"> Edge on a 💻 Laptop or 🖥️ Desktop.
     </p>
 </div>
 
 
-<div class="w-[640px] mx-auto" x-show="$store.state === 'unsupported'" >
+<div class="w-[95%] max-w-[800px] mx-auto" x-show="$store.state === 'unsupported'" >
 
     <p class="w-full text-xl text-center my-8 mx-auto"> For what it's worth, here's how it's supposed to work <a href="https://www.youtube.com/watch?v=hhweJlZsDFE" target="_blank">[YouTube link]</a></p>
 </div>
@@ -68,25 +68,25 @@ I built it because from previous experience as a casual user who just wants to u
 
 
 
-<div id="loading-panel" class="w-[640px] mx-auto bg-gray-light rounded-3xl h-[680px] p-6 box-border border border-gray-border flex justify-center items-center"   x-show="$store.state === 'loading'">
+<div id="loading-panel" class="w-[95%] max-w-[1200px] mx-auto bg-gray-light rounded-3xl h-fit min-h-[600px] p-6 box-border border border-gray-border flex justify-center items-center"   x-show="$store.state === 'loading'">
 
     <img src="loading.svg" alt="Loading" class="w-64 h-64 mx-auto block relative">
 </div>
 
-<div id="error-panel" class="w-[640px] mx-auto bg-gray-light rounded-3xl h-[680px] p-6 box-border border border-gray-border flex justify-center items-center"   x-show="$store.state === 'error'">
+<div id="error-panel" class="w-[95%] max-w-[1200px] mx-auto bg-gray-light rounded-3xl h-fit min-h-[600px] p-6 box-border border border-gray-border flex justify-center items-center"   x-show="$store.state === 'error'">
     <p class="w-full text-2xl text-center my-5 mx-auto">An error ocurred while processing the video: <span class="font-mono bg-gray-200 rounded-lg py-1 px-2 mx-1" x-text="$store.error"></span></p>
 </div>
 
-<div id="file-load-panel" class="w-[640px] mx-auto bg-gray-light rounded-3xl h-[360px] p-6 box-border border border-gray-border block"  x-show="$store.state === 'init'">
+<div id="file-load-panel" class="w-[95%] max-w-[800px] mx-auto bg-gray-light rounded-3xl h-[360px] p-6 box-border border border-gray-border block"  x-show="$store.state === 'init'">
     <p class="w-full text-2xl text-center my-5 mx-auto">Choose a video to upscale</p>
     <button type="button" class="btn btn-primary mx-auto my-16 py-2 px-4 rounded-lg font-extrabold block bg-blue-900 flex flex-row"  id="input-button" onclick="chooseFile(this)">Choose a video file</button>
 </div>
 
 
 
-<div id="start-panel" class="w-[640px] mx-auto bg-gray-light rounded-3xl h-[680px] p-6 box-border border border-gray-border" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete' || $store.state === 'paused'">
+<div id="start-panel" class="w-[95%] max-w-[1200px] mx-auto bg-gray-light rounded-3xl h-fit min-h-[600px] p-6 box-border border border-gray-border" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete' || $store.state === 'paused'">
 
-    <div id="image-compare-outer" x-show="$store.state === 'preview'">
+    <div id="image-compare-outer">
         <div id="image-compare" >
        
             <canvas id="original"></canvas>
@@ -180,7 +180,14 @@ I built it because from previous experience as a casual user who just wants to u
     </div>
 
 
-    <p x-show="$store.state === 'complete'" class="text-center my-3">If you like the tool, please consider giving a github star <br/> on <a href="https://github.com/sb2702/free-ai-video-upscaler" class="text-primary" target="_blank">this Github Repo</a>,  it helps more people discover Free AI Video Upscaler</p>
+    <!-- Playback Controls for Completed Video -->
+    <div x-show="$store.state === 'complete' && $store.target === 'blob'" class="w-full flex flex-col items-center justify-center p-4 bg-white border border-gray-border rounded-2xl my-4 gap-2">
+        <div class="flex flex-row items-center w-full gap-4">
+            <button type="button" class="btn btn-primary min-w-[80px] bg-blue-900 text-white font-bold" onclick="togglePlayback()" x-text="$store.playbackPlaying ? 'Pause' : 'Play'"></button>
+            <input type="range" class="form-range flex-grow accent-blue-900" min="0" step="any" x-bind:max="$store.videoDuration" x-bind:value="$store.playbackTime" @input="seekPlayback($event.target.value)">
+            <span class="text-sm font-mono text-gray-700 min-w-[100px] text-right" x-text="formatTime($store.playbackTime) + ' / ' + formatTime($store.videoDuration)"></span>
+        </div>
+    </div>
 
     <div id="download-link" class="flex flex-col"  x-show="$store.state === 'complete'">
 
@@ -210,15 +217,34 @@ I built it because from previous experience as a casual user who just wants to u
 </div>
 
 
-<div id="footer" class="fixed left-0 bottom-0 w-full text-gray-text text-center text-sm p-5">
-    <div class="float-left">
-        Souce code <a class="text-primary" href="https://github.com/sb2702/free-ai-video-upscaler" >on Github</a>.  &nbsp;  &nbsp; © Sam Bhattacharyya 2026
-    </div>
+<!-- About panel toggle in bottom-left corner -->
+<div class="fixed left-4 bottom-4 z-50" x-data="{ open: false }">
+    <!-- About Toggle Button -->
+    <button 
+        type="button" 
+        @click="open = !open" 
+        class="w-10 h-10 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold text-lg shadow-lg hover:bg-blue-800 transition-colors focus:outline-none"
+        title="About this tool"
+    >
+        !
+    </button>
 
-    <div class="float-right">
-        Issues, questions or suggestions, go <a class="text-primary" href="https://videoupscaler.canny.io/issues-requests"> here</a>
+    <!-- About Expanded Panel -->
+    <div 
+        x-show="open" 
+        @click.outside="open = false"
+        x-transition
+        class="absolute bottom-12 left-0 w-80 bg-white border border-gray-border rounded-2xl p-5 shadow-2xl text-sm text-gray-800"
+    >
+        <h4 class="font-bold text-lg mb-2 text-blue-900">About</h4>
+        <p class="leading-relaxed">
+            Adapted from the original source code by <strong>© Sam Bhattacharyya 2026</strong> under the MIT license.
+        </p>
+        <div class="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
+            <a class="text-blue-600 font-semibold hover:underline" href="https://github.com/sb2702/free-ai-video-upscaler" target="_blank">Source code on GitHub</a>
+            <a class="text-gray-500 hover:underline" href="https://videoupscaler.canny.io/issues-requests" target="_blank">Issues / Feedback</a>
+        </div>
     </div>
-
 </div>
 
 </body>
