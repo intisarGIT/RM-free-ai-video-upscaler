@@ -32,7 +32,6 @@ let gpu: any;
 let websr: WebSR;
 let activeBackend: 'webgpu' | 'webgl' | null = null;
 let videoUpscaled: HTMLVideoElement | null = null;
-let playbackLoopActive = false;
 
 // AI model weights for different network sizes and content types
 type WeightsMap = {
@@ -118,7 +117,20 @@ async function index(): Promise<void> {
 }
 
 function getPreviewHeight(): number {
-    return Math.max(200, Math.min(420, window.innerHeight - 380));
+    return Math.max(220, Math.min(420, window.innerHeight - 370));
+}
+
+/** Sync the #settings bar width to match the video preview container */
+function syncSettingsWidth() {
+    const imageCompare = document.getElementById('image-compare-outer') as HTMLElement;
+    const settings = document.getElementById('settings') as HTMLElement;
+    if (imageCompare && settings) {
+        const w = imageCompare.offsetWidth || imageCompare.getBoundingClientRect().width;
+        if (w > 0) {
+            settings.style.width = `${w}px`;
+            settings.style.minWidth = '';
+        }
+    }
 }
 
 /**
@@ -200,31 +212,30 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
 
 
         const previewHeight = getPreviewHeight();
-        const previewWidth = Math.round(video.videoWidth/video.videoHeight*previewHeight);
         imageCompare.style.height = `${previewHeight}px`;
-        imageCompare.style.width =  `${previewWidth}px`;
+        imageCompare.style.width =  `${Math.round(video.videoWidth/video.videoHeight*previewHeight)}px`
         imageCompare.style.margin = 'auto';
         imageCompare.style.position = 'relative';
 
-        const settingsElement = document.getElementById('settings');
-        if (settingsElement) {
-            settingsElement.style.width = `${previewWidth}px`;
-            settingsElement.style.margin = '12px auto';
-        }
-        const scrubberElement = document.getElementById('completed-scrubber');
-        if (scrubberElement) {
-            scrubberElement.style.width = `${previewWidth}px`;
-            scrubberElement.style.margin = '12px auto';
-        }
 
+        // Mount ImageCompare slider
         new ImageCompare(document.getElementById('image-compare')).mount();
-        
-        video.onseeked = function() {
-            video.onseeked = null;
-            if(video.requestVideoFrameCallback)  video.requestVideoFrameCallback(showPreview);
-            else requestAnimationFrame(showPreview);
-        };
+
+        // Keep video frozen at preview frame; do NOT animate via requestVideoFrameCallback here.
+        // We seek to 20% in to show a representative frame.
         video.currentTime = video.duration * 0.2 || 0;
+        video.pause();
+        
+        // Initialize canvas+worker on first seeked event, then re-render on subsequent seeks
+        let workerInitialized = false;
+        video.onseeked = function() {
+            if (!workerInitialized) {
+                workerInitialized = true;
+                showPreview();
+            } else if (Alpine.store('state') === 'preview') {
+                renderPreviewFrame();
+            }
+        };
 
         window.togglePause = function () {
             const currentState = Alpine.store('state');
@@ -250,10 +261,8 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
 
         const bitmap = await createImageBitmap(video);
 
-
         const upscaled = upscaled_canvas.transferControlToOffscreen();
-        const original =    original_canvas.transferControlToOffscreen();
-
+        const original = original_canvas.transferControlToOffscreen();
 
         worker.postMessage({cmd: "init", data: {
                 bitmap,
@@ -271,6 +280,10 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
         content = 'rl';
         await updateNetwork();
         Alpine.store('style', 'rl');
+
+        setTimeout(syncSettingsWidth, 50);
+        setTimeout(syncSettingsWidth, 200);
+        setTimeout(syncSettingsWidth, 500);
 
 
 
@@ -304,18 +317,8 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
                 imageCompareInner.style.width = `${previewWidth}px`;
             }
             
-            const settingsElement = document.getElementById('settings');
-            if (settingsElement) {
-                settingsElement.style.width = `${previewWidth}px`;
-                settingsElement.style.margin = '12px auto';
-            }
-            const scrubberElement = document.getElementById('completed-scrubber');
-            if (scrubberElement) {
-                scrubberElement.style.width = `${previewWidth}px`;
-                scrubberElement.style.margin = '12px auto';
-            }
-            
             setFullScreenLocation();
+            syncSettingsWidth();
         }
 
         window.addEventListener('resize', updateDimensions);
@@ -346,22 +349,10 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
                 
                 // Reset inner container to original preview size
                 const previewHeight = getPreviewHeight();
-                const previewWidth = Math.round(video.videoWidth/video.videoHeight*previewHeight);
                 imageCompareInner.style.height = `${previewHeight}px`;
-                imageCompareInner.style.width = `${previewWidth}px`;
+                imageCompareInner.style.width = `${Math.round(video.videoWidth/video.videoHeight*previewHeight)}px`;
                 imageCompareInner.style.margin = 'auto';
                 imageCompareInner.style.position = 'relative';
-
-                const settingsElement = document.getElementById('settings');
-                if (settingsElement) {
-                    settingsElement.style.width = `${previewWidth}px`;
-                    settingsElement.style.margin = '12px auto';
-                }
-                const scrubberElement = document.getElementById('completed-scrubber');
-                if (scrubberElement) {
-                    scrubberElement.style.width = `${previewWidth}px`;
-                    scrubberElement.style.margin = '12px auto';
-                }
             }
         });
 
@@ -445,16 +436,18 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
         window.switchNetworkSize = async function(el: HTMLInputElement){
             if(el.value !== size){
                 size = el.value as NetworkSize;
-
                 await updateNetwork();
+                // Re-render preview frame after network switch
+                renderPreviewFrame();
             }
         }
 
         window.switchNetworkStyle = async function(el: HTMLInputElement){
             if(el.value !== content){
                 content = el.value as ContentType;
-
                 await updateNetwork();
+                // Re-render preview frame after network switch
+                renderPreviewFrame();
             }
         }
 
@@ -500,12 +493,20 @@ worker.onmessage = function (event: MessageEvent<WorkerResponseMessage>) {
             videoUpscaled.src = url;
             videoUpscaled.muted = true;
             videoUpscaled.playsInline = true;
-            videoUpscaled.loop = true;
-            video.loop = true;
+            video.pause();
             
             Alpine.store('videoDuration', video.duration || 0);
-            Alpine.store('playbackTime', 0);
+            Alpine.store('playbackTime', video.currentTime);
             Alpine.store('playbackPlaying', false);
+
+            // Once the upscaled video metadata is loaded, seek both to current position and render
+            videoUpscaled.onloadeddata = function() {
+                videoUpscaled.currentTime = video.currentTime;
+                videoUpscaled.onseeked = function() {
+                    renderScrubFrame();
+                };
+            };
+            videoUpscaled.load();
         }
     }
     else if (event.data.cmd === 'paused') {
@@ -515,55 +516,60 @@ worker.onmessage = function (event: MessageEvent<WorkerResponseMessage>) {
     }
 };
 
-async function renderCompletedFrame() {
-    if (!videoUpscaled) return;
+/**
+ * Render the current frame from the original video to the comparison canvas (preview mode).
+ * Sends a bitmap of the current video frame to the worker to display on the canvas.
+ */
+async function renderPreviewFrame(): Promise<void> {
+    if (!video || video.readyState < 2) return;
     try {
+        const bitmap = await createImageBitmap(video);
+        worker.postMessage({ cmd: 'previewFrame', data: { bitmap } }, [bitmap]);
+    } catch (e) {
+        // Ignore errors during rapid seek
+    }
+}
+
+/**
+ * Render a comparison frame from both original and upscaled video at the current scrub position.
+ * Used by the frame scrubber after processing is complete.
+ */
+async function renderScrubFrame(): Promise<void> {
+    if (!video || !videoUpscaled) return;
+    try {
+        // Ensure both are paused at the same time
         const [originalBitmap, upscaledBitmap] = await Promise.all([
             createImageBitmap(video),
             createImageBitmap(videoUpscaled)
         ]);
-        
         worker.postMessage({
             cmd: 'playbackFrame',
-            data: {
-                original: originalBitmap,
-                upscaled: upscaledBitmap
-            }
+            data: { original: originalBitmap, upscaled: upscaledBitmap }
         }, [originalBitmap, upscaledBitmap]);
     } catch (e) {
-        // Ignore seek errors
+        // Ignore fast seek errors
     }
 }
 
+// Global player control functions — scrubber-based, no play/pause
 window.seekPlayback = function(val: string) {
-    if (!videoUpscaled) return;
     const time = parseFloat(val);
-    
-    video.onseeked = null;
-    videoUpscaled.onseeked = null;
-    
-    let videoSeeked = false;
-    let upscaledSeeked = false;
-    
-    video.onseeked = async () => {
-        video.onseeked = null;
-        videoSeeked = true;
-        if (upscaledSeeked) {
-            await renderCompletedFrame();
-        }
-    };
-    
-    videoUpscaled.onseeked = async () => {
-        videoUpscaled.onseeked = null;
-        upscaledSeeked = true;
-        if (videoSeeked) {
-            await renderCompletedFrame();
-        }
-    };
-    
-    video.currentTime = time;
-    videoUpscaled.currentTime = time;
     Alpine.store('playbackTime', time);
+    video.currentTime = time;
+    if (videoUpscaled) {
+        videoUpscaled.currentTime = time;
+        // Render once both are seeked
+        let pending = videoUpscaled ? 2 : 1;
+        const onSeeked = () => {
+            pending--;
+            if (pending <= 0) renderScrubFrame();
+        };
+        video.onseeked = onSeeked;
+        if (videoUpscaled) videoUpscaled.onseeked = onSeeked;
+    } else {
+        // Still in preview mode
+        video.onseeked = function() { renderPreviewFrame(); };
+    }
 };
 
 window.formatTime = function(secs: number): string {
@@ -572,6 +578,7 @@ window.formatTime = function(secs: number): string {
     const s = Math.floor(secs % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
 };
+
 
 
 

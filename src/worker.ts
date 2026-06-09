@@ -29,9 +29,6 @@ let resolvePause: (() => void) | null = null;
 // Default weights
 const weights = require('./weights/cnn-2x-m-rl.json');
 
-let activeNetworkName: string = "anime4k/cnn-2x-m";
-let activeWeights: any = weights;
-
 /**
  * Check if WebGPU or WebGL2 is supported in this environment
  */
@@ -119,11 +116,9 @@ async function init(config: InitData): Promise<void> {
   }
 
   if (backend === 'webgpu') {
-    activeNetworkName = "anime4k/cnn-2x-m";
-    activeWeights = weights;
     websr = new WebSR({
-      network_name: activeNetworkName as any,
-      weights: activeWeights,
+      network_name: "anime4k/cnn-2x-m",
+      weights,
       resolution: config.resolution,
       gpu: gpu,
       canvas: config.upscaled as any // OffscreenCanvas is valid but types may be strict
@@ -134,11 +129,10 @@ async function init(config: InitData): Promise<void> {
     if (!gl) {
       throw new Error("Failed to get WebGL2 context on upscaled canvas");
     }
-    activeNetworkName = "anime4k/cnn-2x-l";
-    activeWeights = require('./weights/cnn-2x-l-rl.json');
+    const localLargeWeights = require('./weights/cnn-2x-l-rl.json');
     websr = new WebGLUpscaler({
-      network_name: activeNetworkName,
-      weights: activeWeights,
+      network_name: "anime4k/cnn-2x-l",
+      weights: localLargeWeights,
       resolution: config.resolution,
       gl: gl,
       canvas: config.upscaled
@@ -179,12 +173,9 @@ async function init(config: InitData): Promise<void> {
  * Switch to a different AI upscaling network
  */
 async function switchNetwork(name: string, weights: any, bitmap: ImageBitmap): Promise<void> {
-  activeNetworkName = name;
-  activeWeights = weights;
   websr.switchNetwork(name as any, weights);
 
   await websr.render(bitmap as any);
-  bitmap.close();
 }
 
 
@@ -235,10 +226,7 @@ self.onmessage = async function (event: MessageEvent<WorkerRequestMessage>) {
         upscaled_canvas,
         original_canvas,
         resolution,
-        getPauseLock: () => pauseLock,
-        activeNetworkName,
-        activeWeights,
-        gpuDevice: gpu
+        getPauseLock: () => pauseLock
       });
 
      // To use MediaBunny instead, uncomment above import and use:
@@ -253,15 +241,26 @@ self.onmessage = async function (event: MessageEvent<WorkerRequestMessage>) {
       );
       break;
 
+    case 'previewFrame':
+      if (event.data.cmd === 'previewFrame') {
+        const bitmap = event.data.data.bitmap;
+        if (ctx) {
+          ctx.transferFromImageBitmap(bitmap);
+        }
+        if (websr) {
+          await websr.render(bitmap as any);
+        } else {
+          bitmap.close();
+        }
+      }
+      break;
+
     case 'playbackFrame':
       if (event.data.cmd === 'playbackFrame') {
         const originalBitmap = event.data.data.original;
         const upscaledBitmap = event.data.data.upscaled;
         if (ctx) {
           ctx.transferFromImageBitmap(originalBitmap);
-        }
-        if (backend === 'webgl' && websr instanceof WebGLUpscaler) {
-          websr.setFlipY(false);
         }
         if (websr) {
           await websr.render(upscaledBitmap as any);
