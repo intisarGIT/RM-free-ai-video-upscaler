@@ -243,14 +243,19 @@ self.onmessage = async function (event: MessageEvent<WorkerRequestMessage>) {
 
     case 'previewFrame':
       if (event.data.cmd === 'previewFrame') {
-        const bitmap = event.data.data.bitmap;
+        const origBitmap = event.data.data.original;
+        const upscBitmap = event.data.data.upscaled;
+        // Transfer original frame to the "before" (left) canvas
         if (ctx) {
-          ctx.transferFromImageBitmap(bitmap);
-        }
-        if (websr) {
-          await websr.render(bitmap as any);
+          ctx.transferFromImageBitmap(origBitmap);
         } else {
-          bitmap.close();
+          origBitmap.close();
+        }
+        // Render upscaled frame via websr to the "after" (right) canvas
+        if (websr && upscBitmap) {
+          await websr.render(upscBitmap as any);
+        } else if (upscBitmap) {
+          upscBitmap.close();
         }
       }
       break;
