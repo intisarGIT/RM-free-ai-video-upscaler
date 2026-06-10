@@ -154,19 +154,19 @@
 
 <div id="start-panel" class="w-[95%] max-w-[1200px] mx-auto mt-4 bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit p-5 md:p-6 box-border border border-[#1c1c38] shadow-2xl" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete' || $store.state === 'paused'">
 
-    <div id="image-compare-outer">
-        <div id="image-compare" >
-       
+    <!-- Canvas display area -->
+    <div id="image-compare-outer" style="position:relative;">
+        <div id="image-compare">
+            <!-- Left side: original frame (bitmaprenderer, always visible) -->
             <canvas id="original"></canvas>
-            <canvas id="upscaled" ></canvas>
+            <!-- Right side: upscaled output drawn from video file (2D, only shown on complete) -->
+            <canvas id="display-upscaled" x-show="$store.state === 'complete'"></canvas>
         </div>
- 
-
-
-
+        <!-- Offscreen WebGL/WebGPU processing canvas - never shown to user -->
+        <canvas id="upscaled" style="display:none;"></canvas>
     </div>
 
-    <img src="full-screen.svg" alt="Full Screen"  width="15" height="15" id="full-screen" onclick="fullScreenPreview()" x-show="$store.state === 'preview'" class="absolute z-10 cursor-pointer">
+    <img src="full-screen.svg" alt="Full Screen"  width="15" height="15" id="full-screen" onclick="fullScreenPreview()" x-show="$store.state === 'complete'" class="absolute z-10 cursor-pointer">
 
     <div id="preview"  x-show="$store.state === 'preview'">
 
@@ -236,11 +236,16 @@
                   style="width: 75%"></div>
         </div>
 
-        <div class="flex flex-row justify-center mt-4">
+        <div class="flex flex-row justify-center gap-3 mt-4">
             <button type="button" 
                     class="btn btn-outline-primary" 
                     onclick="togglePause()" 
                     x-text="$store.state === 'paused' ? 'Resume Upscaling' : 'Pause Upscaling'">
+            </button>
+            <button type="button"
+                    class="btn btn-outline-primary text-red-400 border-red-800/60 hover:bg-red-950/40 hover:text-red-300"
+                    onclick="cancelUpscaling()">
+                Cancel
             </button>
         </div>
     </div>

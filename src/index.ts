@@ -16,7 +16,9 @@ const worker = new Worker(new URL('./worker.ts', import.meta.url));
 // Canvas and video elements
 let upscaled_canvas: HTMLCanvasElement;
 let original_canvas: HTMLCanvasElement;
+let display_upscaled_canvas: HTMLCanvasElement;
 let video: HTMLVideoElement;
+let imageCompareInstance: any = null;
 
 // Network selection
 type NetworkSize = 'small' | 'medium' | 'large';
@@ -82,7 +84,7 @@ declare global {
         showSaveFilePicker: (options?: any) => Promise<FileSystemFileHandle>;
         showOpenFilePicker: (options?: any) => Promise<FileSystemFileHandle[]>;
         togglePause: () => void;
-        togglePlayback: () => void;
+        cancelUpscaling: () => void;
         seekPlayback: (val: string) => void;
         formatTime: (secs: number) => string;
     }
@@ -106,6 +108,7 @@ async function index(): Promise<void> {
 
     upscaled_canvas = document.getElementById("upscaled") as HTMLCanvasElement;
     original_canvas = document.getElementById('original') as HTMLCanvasElement;
+    display_upscaled_canvas = document.getElementById('display-upscaled') as HTMLCanvasElement;
 
     if (!("VideoEncoder" in window)) return showUnsupported("WebCodecs");
 
@@ -211,29 +214,30 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
         original_canvas.height = video.videoHeight*2;
 
 
+        // Size the container and original canvas for preview/processing
         const previewHeight = getPreviewHeight();
         imageCompare.style.height = `${previewHeight}px`;
-        imageCompare.style.width =  `${Math.round(video.videoWidth/video.videoHeight*previewHeight)}px`
+        imageCompare.style.width = `${Math.round(video.videoWidth/video.videoHeight*previewHeight)}px`;
         imageCompare.style.margin = 'auto';
         imageCompare.style.position = 'relative';
 
+        // Also size display-upscaled canvas to match
+        display_upscaled_canvas.width = video.videoWidth * 2;
+        display_upscaled_canvas.height = video.videoHeight * 2;
+        display_upscaled_canvas.style.width = '100%';
+        display_upscaled_canvas.style.height = '100%';
 
-        // Mount ImageCompare slider
-        new ImageCompare(document.getElementById('image-compare')).mount();
-
-        // Keep video frozen at preview frame; do NOT animate via requestVideoFrameCallback here.
-        // We seek to 20% in to show a representative frame.
+        // No ImageCompare in preview mode — just show original canvas alone.
+        // We keep video frozen at a representative frame.
         video.currentTime = video.duration * 0.2 || 0;
         video.pause();
-        
-        // Initialize canvas+worker on first seeked event, then re-render on subsequent seeks
+
+        // Initialize canvas+worker on first seeked event
         let workerInitialized = false;
         video.onseeked = function() {
             if (!workerInitialized) {
                 workerInitialized = true;
                 showPreview();
-            } else if (Alpine.store('state') === 'preview') {
-                renderPreviewFrame();
             }
         };
 
@@ -244,6 +248,12 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
             } else if (currentState === 'paused') {
                 worker.postMessage({ cmd: 'resume' } satisfies WorkerRequestMessage);
             }
+        };
+
+        window.cancelUpscaling = function () {
+            // Terminate the worker and reload to reset state
+            worker.terminate();
+            location.reload();
         };
 
     }
@@ -413,10 +423,10 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
             imageCompareInner.style.height = `${displayHeight}px`;
             
             // Let the canvases fill their parent container
-            upscaled_canvas.style.width = `${displayWidth}px`;
-            upscaled_canvas.style.height = `${displayHeight}px`;
             original_canvas.style.width = `${displayWidth}px`;
             original_canvas.style.height = `${displayHeight}px`;
+            display_upscaled_canvas.style.width = `${displayWidth}px`;
+            display_upscaled_canvas.style.height = `${displayHeight}px`;
         }
 
         async function fullScreenPreview(e) {
@@ -437,8 +447,7 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
             if(el.value !== size){
                 size = el.value as NetworkSize;
                 await updateNetwork();
-                // Re-render preview frame after network switch
-                renderPreviewFrame();
+                // Note: network effect is only visible when upscaling starts, not in preview
             }
         }
 
@@ -446,8 +455,7 @@ async function setupPreview(data: ArrayBuffer): Promise<void> {
             if(el.value !== content){
                 content = el.value as ContentType;
                 await updateNetwork();
-                // Re-render preview frame after network switch
-                renderPreviewFrame();
+                // Note: network effect is only visible when upscaling starts, not in preview
             }
         }
 
@@ -485,19 +493,31 @@ worker.onmessage = function (event: MessageEvent<WorkerResponseMessage>) {
         Alpine.store('eta', event.data.data);
 
     } else if (event.data.cmd === 'finished') {
-        Alpine.store('state', 'complete');
         const url = event.data.data ? window.URL.createObjectURL(event.data.data) : null;
         Alpine.store('download_url', url);
+        
+        // Set state to complete AFTER setting up video so Alpine doesn't race
         if (url) {
             videoUpscaled = document.createElement('video');
             videoUpscaled.src = url;
             videoUpscaled.muted = true;
             videoUpscaled.playsInline = true;
             video.pause();
-            
+
             Alpine.store('videoDuration', video.duration || 0);
             Alpine.store('playbackTime', video.currentTime);
             Alpine.store('playbackPlaying', false);
+
+            // Switch state to complete — this reveals #display-upscaled and #image-compare
+            Alpine.store('state', 'complete');
+
+            // Mount the ImageCompare slider now that both canvases are visible
+            setTimeout(() => {
+                if (!imageCompareInstance) {
+                    imageCompareInstance = new ImageCompare(document.getElementById('image-compare'));
+                    imageCompareInstance.mount();
+                }
+            }, 50);
 
             // Once the upscaled video metadata is loaded, seek both to current position and render
             videoUpscaled.onloadeddata = function() {
@@ -507,6 +527,8 @@ worker.onmessage = function (event: MessageEvent<WorkerResponseMessage>) {
                 };
             };
             videoUpscaled.load();
+        } else {
+            Alpine.store('state', 'complete');
         }
     }
     else if (event.data.cmd === 'paused') {
@@ -531,41 +553,48 @@ async function renderPreviewFrame(): Promise<void> {
 }
 
 /**
- * Render a comparison frame from both original and upscaled video at the current scrub position.
- * Used by the frame scrubber after processing is complete.
+ * Render a comparison frame for the frame scrubber (complete state).
+ * - Original frame: sent to worker for bitmaprenderer display on #original canvas
+ * - Upscaled frame: drawn directly to #display-upscaled 2D canvas (NO re-upscaling)
  */
 async function renderScrubFrame(): Promise<void> {
     if (!video || !videoUpscaled) return;
     try {
-        // Ensure both are paused at the same time
-        const [originalBitmap, upscaledBitmap] = await Promise.all([
-            createImageBitmap(video),
-            createImageBitmap(videoUpscaled)
-        ]);
-        worker.postMessage({
-            cmd: 'playbackFrame',
-            data: { original: originalBitmap, upscaled: upscaledBitmap }
-        }, [originalBitmap, upscaledBitmap]);
+        // Draw the original (bilinear upscaled) frame via worker
+        const originalBitmap = await createImageBitmap(video);
+        worker.postMessage({ cmd: 'previewFrame', data: { bitmap: originalBitmap } }, [originalBitmap]);
+
+        // Draw the upscaled result directly to the 2D display canvas
+        const ctx2d = display_upscaled_canvas.getContext('2d');
+        if (ctx2d) {
+            ctx2d.drawImage(
+                videoUpscaled,
+                0, 0,
+                display_upscaled_canvas.width,
+                display_upscaled_canvas.height
+            );
+        }
     } catch (e) {
         // Ignore fast seek errors
     }
 }
 
-// Global player control functions — scrubber-based, no play/pause
+// Global scrubber control
 window.seekPlayback = function(val: string) {
     const time = parseFloat(val);
     Alpine.store('playbackTime', time);
     video.currentTime = time;
     if (videoUpscaled) {
+        // Seek both videos; render once the upscaled video has seeked
+        // (original is rendered via onseeked on video below)
         videoUpscaled.currentTime = time;
-        // Render once both are seeked
-        let pending = videoUpscaled ? 2 : 1;
-        const onSeeked = () => {
-            pending--;
-            if (pending <= 0) renderScrubFrame();
+        let seekCount = 0;
+        const tryRender = () => {
+            seekCount++;
+            if (seekCount >= 2) renderScrubFrame();
         };
-        video.onseeked = onSeeked;
-        if (videoUpscaled) videoUpscaled.onseeked = onSeeked;
+        video.onseeked = tryRender;
+        videoUpscaled.onseeked = tryRender;
     } else {
         // Still in preview mode
         video.onseeked = function() { renderPreviewFrame(); };
