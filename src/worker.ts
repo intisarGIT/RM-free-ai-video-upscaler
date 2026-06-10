@@ -174,6 +174,9 @@ async function init(config: InitData): Promise<void> {
  * Switch to a different AI upscaling network
  */
 async function switchNetwork(name: string, weights: any, bitmap: ImageBitmap): Promise<void> {
+  if (websr instanceof WebGLUpscaler) {
+    websr.setFlipY(false);
+  }
   websr.switchNetwork(name as any, weights);
 
   await websr.render(bitmap as any);
@@ -255,6 +258,9 @@ self.onmessage = async function (event: MessageEvent<WorkerRequestMessage>) {
           ctx.transferFromImageBitmap(bitmap);
         }
         if (websr) {
+          if (websr instanceof WebGLUpscaler) {
+            websr.setFlipY(false);
+          }
           await websr.render(bitmap as any);
         } else {
           bitmap.close();
@@ -270,6 +276,9 @@ self.onmessage = async function (event: MessageEvent<WorkerRequestMessage>) {
           ctx.transferFromImageBitmap(originalBitmap);
         }
         if (websr) {
+          if (websr instanceof WebGLUpscaler) {
+            websr.setFlipY(false);
+          }
           await websr.render(upscaledBitmap as any);
         }
         originalBitmap.close();
