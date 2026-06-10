@@ -10,6 +10,7 @@ import {
 import WebSR from '@websr/websr';
 import { WebGLUpscaler } from '../websr/webgl';
 import InMemoryStorage from './in-memory-storage';
+import type { WorkerResponseMessage } from '../types/worker-messages';
 
 interface ProcessorArgs {
   inputHandle: FileSystemFileHandle;
@@ -19,6 +20,7 @@ interface ProcessorArgs {
   original_canvas: OffscreenCanvas;
   resolution: { width: number; height: number };
   getPauseLock?: () => Promise<void> | null;
+  isCancelled?: () => boolean;
 }
 
 
@@ -52,7 +54,7 @@ class VideoDecoderStream extends TransformStream<
   { chunk: EncodedVideoChunk; index: number },
   { frame: VideoFrame; index: number }
 > {
-  constructor(config: VideoDecoderConfig, getPauseLock?: () => Promise<void> | null) {
+  constructor(config: VideoDecoderConfig, getPauseLock?: () => Promise<void> | null, isCancelled?: () => boolean) {
     let pendingIndices: number[] = [];
     let decoder: VideoDecoder;
 
@@ -75,19 +77,35 @@ class VideoDecoderStream extends TransformStream<
         },
 
         async transform(item, controller) {
+          if (isCancelled && isCancelled()) {
+            controller.error(new Error('Cancelled'));
+            return;
+          }
           if (getPauseLock) {
             const lock = getPauseLock();
             if (lock) {
               await lock;
             }
           }
+          if (isCancelled && isCancelled()) {
+            controller.error(new Error('Cancelled'));
+            return;
+          }
           // Check decoder queue backpressure
           while (decoder.decodeQueueSize >= 20) {
+            if (isCancelled && isCancelled()) {
+              controller.error(new Error('Cancelled'));
+              return;
+            }
             await new Promise((r) => setTimeout(r, 10));
           }
 
           // Check downstream backpressure
           while (controller.desiredSize !== null && controller.desiredSize < 0) {
+            if (isCancelled && isCancelled()) {
+              controller.error(new Error('Cancelled'));
+              return;
+            }
             await new Promise((r) => setTimeout(r, 10));
           }
 
@@ -120,41 +138,45 @@ class VideoUpscaleStream extends TransformStream<
     private websr: WebSR | WebGLUpscaler,
     private upscaled_canvas: OffscreenCanvas,
     private original_canvas: OffscreenCanvas,
-    getPauseLock?: () => Promise<void> | null
+    getPauseLock?: () => Promise<void> | null,
+    isCancelled?: () => boolean
   ) {
     super(
       {
 
         async transform(item, controller) {
+          if (isCancelled && isCancelled()) {
+            controller.error(new Error('Cancelled'));
+            return;
+          }
           if (getPauseLock) {
             const lock = getPauseLock();
             if (lock) {
               await lock;
             }
           }
+          if (isCancelled && isCancelled()) {
+            controller.error(new Error('Cancelled'));
+            return;
+          }
           const { frame, index } = item;
 
           // Render upscaled frame to canvas
           await websr.render(frame);
 
-          // Create upscaled VideoFrame from canvas or read pixels for WebGL
-          let upscaledFrame: VideoFrame;
-          if (websr instanceof WebGLUpscaler) {
-            const pixels = websr.readPixels();
-            upscaledFrame = new VideoFrame(pixels, {
-              format: 'RGBA',
-              codedWidth: upscaled_canvas.width,
-              codedHeight: upscaled_canvas.height,
-              timestamp: frame.timestamp,
-              duration: frame.duration || undefined
-            });
-          } else {
-            upscaledFrame = new VideoFrame(upscaled_canvas, {
-              timestamp: frame.timestamp,
-              duration: frame.duration,
-              alpha: "discard"
-            });
+          if (isCancelled && isCancelled()) {
+            controller.error(new Error('Cancelled'));
+            frame.close();
+            return;
           }
+
+          // Create upscaled VideoFrame from canvas
+          const bitmap = await createImageBitmap(upscaled_canvas);
+          const upscaledFrame = new VideoFrame(bitmap, {
+            timestamp: frame.timestamp,
+            duration: frame.duration || undefined
+          });
+          bitmap.close();
 
           // Clean up original frame
           frame.close();
@@ -316,7 +338,7 @@ function prettyTime(secs: number): string {
  * Main pipeline processor using Streams API
  */
 export default async function pipelineProcessor(args: ProcessorArgs): Promise<void> {
-  const { inputHandle, outputHandle, websr, upscaled_canvas, original_canvas, resolution, getPauseLock } = args;
+  const { inputHandle, outputHandle, websr, upscaled_canvas, original_canvas, resolution, getPauseLock, isCancelled } = args;
 
   console.log('Starting pipeline processor with Streams API');
 
@@ -397,40 +419,62 @@ export default async function pipelineProcessor(args: ProcessorArgs): Promise<vo
     websr.setFlipY(true);
   }
 
-  // Build the pipeline!
-  const chunkStream = demuxer.read('video', 0) as ReadableStream<EncodedVideoChunk>;
+  try {
+    // Build the pipeline!
+    const chunkStream = demuxer.read('video', 0) as ReadableStream<EncodedVideoChunk>;
 
-  const videoWriter = createVideoMuxerWriter(videoSource, duration);
+    const videoWriter = createVideoMuxerWriter(videoSource, duration);
 
-  const pipeline = chunkStream
-    .pipeThrough(new DemuxerTrackingStream())
-    .pipeThrough(new VideoDecoderStream(videoDecoderConfig, getPauseLock))
-    .pipeThrough(new VideoUpscaleStream(websr, upscaled_canvas, original_canvas, getPauseLock))
-    .pipeThrough(new VideoEncoderStream(videoEncoderConfig))
-    .pipeTo(videoWriter);
+    const pipeline = chunkStream
+      .pipeThrough(new DemuxerTrackingStream())
+      .pipeThrough(new VideoDecoderStream(videoDecoderConfig, getPauseLock, isCancelled))
+      .pipeThrough(new VideoUpscaleStream(websr, upscaled_canvas, original_canvas, getPauseLock, isCancelled))
+      .pipeThrough(new VideoEncoderStream(videoEncoderConfig))
+      .pipeTo(videoWriter);
 
-  await output.start();
+    await output.start();
 
-  // Process video
-  await pipeline;
+    // Process video
+    await pipeline;
 
-  // Process audio (passthrough)
-  if (audioConfig && audioSource) {
-    console.log('Processing audio...');
-    const audioStream = demuxer.read('audio', 0) as ReadableStream<EncodedAudioChunk>;
-    const audioWriter = createAudioMuxerWriter(audioSource, audioConfig);
-    await audioStream.pipeTo(audioWriter);
-  }
+    // Process audio (passthrough)
+    if (audioConfig && audioSource) {
+      if (isCancelled && isCancelled()) {
+        throw new Error('Cancelled');
+      }
+      console.log('Processing audio...');
+      const audioStream = demuxer.read('audio', 0) as ReadableStream<EncodedAudioChunk>;
+      const audioWriter = createAudioMuxerWriter(audioSource, audioConfig);
+      await audioStream.pipeTo(audioWriter);
+    }
 
-  // Finalize
-  await output.finalize();
+    // Finalize
+    await output.finalize();
 
-  if (writer) {
-    await writer.close();
-    postMessage({ cmd: 'finished', data: null }, []);
-  } else {
-    const blob = storage!.toBlob('video/mp4');
-    postMessage({ cmd: 'finished', data: blob });
+    if (writer) {
+      await writer.close();
+      postMessage({ cmd: 'finished', data: null }, []);
+    } else {
+      const blob = storage!.toBlob('video/mp4');
+      postMessage({ cmd: 'finished', data: blob });
+    }
+  } catch (e: any) {
+    console.warn('Pipeline processing stopped/cancelled:', e);
+    
+    // Ensure writer is closed or aborted on failure/cancellation
+    if (writer) {
+      try {
+        await writer.abort();
+      } catch (abErr) {
+        console.warn('Failed to abort writer:', abErr);
+      }
+    }
+
+    if (e instanceof Error && e.message === 'Cancelled') {
+      postMessage({ cmd: 'cancelled' } satisfies WorkerResponseMessage);
+    } else {
+      postMessage({ cmd: 'error', data: e?.message || String(e) } satisfies WorkerResponseMessage);
+    }
   }
 
   console.log('Pipeline processing complete!');

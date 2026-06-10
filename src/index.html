@@ -83,6 +83,20 @@
             border-color: #1c1c38 !important;
             color: #fff !important;
         }
+        .btn-outline-danger {
+            color: #fca5a5 !important;
+            border-color: #ef4444 !important;
+            border-radius: 9999px !important;
+            padding: 0.5rem 1.25rem !important;
+            font-weight: 600 !important;
+            transition: all 0.2s !important;
+            background-color: transparent !important;
+        }
+        .btn-outline-danger:hover {
+            background-color: #ef4444 !important;
+            border-color: #ef4444 !important;
+            color: #fff !important;
+        }
     </style>
 </head>
 
@@ -154,19 +168,19 @@
 
 <div id="start-panel" class="w-[95%] max-w-[1200px] mx-auto mt-4 bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit p-5 md:p-6 box-border border border-[#1c1c38] shadow-2xl" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete' || $store.state === 'paused'">
 
-    <!-- Canvas display area -->
-    <div id="image-compare-outer" style="position:relative;">
-        <div id="image-compare">
-            <!-- Left side: original frame (bitmaprenderer, always visible) -->
-            <canvas id="original"></canvas>
-            <!-- Right side: upscaled output drawn from video file (2D, only shown on complete) -->
-            <canvas id="display-upscaled" x-show="$store.state === 'complete'"></canvas>
-        </div>
-        <!-- Offscreen WebGL/WebGPU processing canvas - never shown to user -->
-        <canvas id="upscaled" style="display:none;"></canvas>
+    <div id="single-preview-container" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'paused'" class="border border-[#1c1c38] rounded-2xl overflow-hidden mx-auto bg-black" style="display: none; position: relative;">
+        <canvas id="single-preview" class="w-full h-full object-contain block"></canvas>
     </div>
 
-    <img src="full-screen.svg" alt="Full Screen"  width="15" height="15" id="full-screen" onclick="fullScreenPreview()" x-show="$store.state === 'complete'" class="absolute z-10 cursor-pointer">
+    <div id="image-compare-outer" x-show="$store.state === 'complete'" style="display: none;">
+        <div id="image-compare" >
+       
+            <canvas id="original"></canvas>
+            <canvas id="upscaled" ></canvas>
+        </div>
+    </div>
+
+    <img src="full-screen.svg" alt="Full Screen"  width="15" height="15" id="full-screen" onclick="fullScreenPreview()" x-show="$store.state === 'complete'" class="absolute z-10 cursor-pointer" style="display: none;">
 
     <div id="preview"  x-show="$store.state === 'preview'">
 
@@ -236,16 +250,16 @@
                   style="width: 75%"></div>
         </div>
 
-        <div class="flex flex-row justify-center gap-3 mt-4">
+        <div class="flex flex-row justify-center mt-4 gap-3">
             <button type="button" 
                     class="btn btn-outline-primary" 
                     onclick="togglePause()" 
                     x-text="$store.state === 'paused' ? 'Resume Upscaling' : 'Pause Upscaling'">
             </button>
-            <button type="button"
-                    class="btn btn-outline-primary text-red-400 border-red-800/60 hover:bg-red-950/40 hover:text-red-300"
+            <button type="button" 
+                    class="btn btn-outline-danger" 
                     onclick="cancelUpscaling()">
-                Cancel
+                Cancel Upscaling
             </button>
         </div>
     </div>

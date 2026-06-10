@@ -25,6 +25,7 @@ let resolution: Resolution;
 let ctx: ImageBitmapRenderingContext | null;
 let pauseLock: Promise<void> | null = null;
 let resolvePause: (() => void) | null = null;
+let cancelRequested = false;
 
 // Default weights
 const weights = require('./weights/cnn-2x-m-rl.json');
@@ -217,8 +218,7 @@ self.onmessage = async function (event: MessageEvent<WorkerRequestMessage>) {
       break;
     
     case 'process':
-
-
+      cancelRequested = false;
       await pipelineProcessor({
         inputHandle: event.data.inputHandle,
         outputHandle: event.data.outputHandle,
@@ -226,11 +226,18 @@ self.onmessage = async function (event: MessageEvent<WorkerRequestMessage>) {
         upscaled_canvas,
         original_canvas,
         resolution,
-        getPauseLock: () => pauseLock
+        getPauseLock: () => pauseLock,
+        isCancelled: () => cancelRequested
       });
+      break;
 
-     // To use MediaBunny instead, uncomment above import and use:
- //    await mediabunnyProcessor({ inputHandle: event.data.inputHandle, outputHandle: event.data.outputHandle, websr, upscaled_canvas, original_canvas, resolution, getPauseLock: () => pauseLock });
+    case 'cancel':
+      cancelRequested = true;
+      if (pauseLock && resolvePause) {
+        resolvePause();
+        pauseLock = null;
+        resolvePause = null;
+      }
       break;
 
     case 'network':

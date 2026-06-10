@@ -16,6 +16,7 @@ export type WorkerRequestMessage =
   | { cmd: 'process'; inputHandle: FileSystemFileHandle; outputHandle?: FileSystemFileHandle }
   | { cmd: 'pause' }
   | { cmd: 'resume' }
+  | { cmd: 'cancel' }
   | { cmd: 'playbackFrame'; data: { original: ImageBitmap; upscaled: ImageBitmap } }
   | { cmd: 'previewFrame'; data: { bitmap: ImageBitmap } };
 
@@ -41,7 +42,8 @@ export type WorkerResponseMessage =
   | { cmd: 'error'; data: string }
   | { cmd: 'finished'; data: Blob | null }
   | { cmd: 'paused' }
-  | { cmd: 'resumed' };
+  | { cmd: 'resumed' }
+  | { cmd: 'cancelled' };
 
 // Type guard helpers
 export function isWorkerRequestMessage(msg: any): msg is WorkerRequestMessage {
