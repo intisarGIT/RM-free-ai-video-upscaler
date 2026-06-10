@@ -102,6 +102,7 @@ async function index(): Promise<void> {
     Alpine.store('playbackPlaying', false);
     Alpine.store('playbackTime', 0);
     Alpine.store('videoDuration', 0);
+    Alpine.store('loadingText', 'Loading...');
 
     Alpine.start();
     document.body.style.display = "block";
@@ -211,6 +212,7 @@ async function chooseFile(e?: Event): Promise<void> {
  */
 async function loadVideo(fileHandle: FileSystemFileHandle): Promise<void> {
     Alpine.store('state', 'loading');
+    Alpine.store('loadingText', 'Reading video file for preview...');
 
     // Store the file handle for later processing
     inputFileHandle = fileHandle;
@@ -662,6 +664,7 @@ async function updateNetwork(): Promise<void> {
  */
 async function initRecording(): Promise<void> {
     Alpine.store('state', 'loading');
+    Alpine.store('loadingText', 'Loading AI model and initializing upscaler...');
 
     let bitrate = getBitrate();
     const estimated_size = (bitrate / 8) * video.duration + (128 / 8) * video.duration; // Assume 128 kbps audio

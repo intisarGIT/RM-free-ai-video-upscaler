@@ -171,7 +171,7 @@ class VideoUpscaleStream extends TransformStream<
           }
 
           // Create upscaled VideoFrame from canvas
-          const bitmap = await createImageBitmap(upscaled_canvas);
+          const bitmap = await createImageBitmap(upscaled_canvas, { imageOrientation: 'flipY' });
           const upscaledFrame = new VideoFrame(bitmap, {
             timestamp: frame.timestamp,
             duration: frame.duration || undefined

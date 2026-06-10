@@ -150,9 +150,10 @@
 
 
 
-<div id="loading-panel" class="w-[95%] max-w-[1200px] mx-auto bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit min-h-[600px] p-6 box-border border border-[#1c1c38] flex justify-center items-center shadow-2xl"   x-show="$store.state === 'loading'">
+<div id="loading-panel" class="w-[95%] max-w-[1200px] mx-auto bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit min-h-[600px] p-6 box-border border border-[#1c1c38] flex flex-col justify-center items-center shadow-2xl"   x-show="$store.state === 'loading'">
 
     <img src="loading.svg" alt="Loading" class="w-64 h-64 mx-auto block relative">
+    <p class="text-gray-300 text-lg font-medium mt-4 tracking-wide text-center" x-text="$store.loadingText"></p>
 </div>
 
 <div id="error-panel" class="w-[95%] max-w-[1200px] mx-auto bg-[#0a0a1a]/85 backdrop-blur-md rounded-3xl h-fit min-h-[600px] p-8 box-border border border-[#1c1c38] flex justify-center items-center shadow-2xl"   x-show="$store.state === 'error'">
