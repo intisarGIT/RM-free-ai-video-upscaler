@@ -17,7 +17,7 @@ export type WorkerRequestMessage =
   | { cmd: 'pause' }
   | { cmd: 'resume' }
   | { cmd: 'playbackFrame'; data: { original: ImageBitmap; upscaled: ImageBitmap } }
-  | { cmd: 'previewFrame'; data: { original: ImageBitmap; upscaled: ImageBitmap } };
+  | { cmd: 'previewFrame'; data: { bitmap: ImageBitmap } };
 
 export interface InitData {
   bitmap: ImageBitmap;
